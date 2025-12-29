@@ -218,11 +218,13 @@ export function renderYoutubeCardSvg({
 
       const cardHeight = item.contentHeight + 4;
       const thumbY = Math.max(0, (item.contentHeight - thumbHeight) / 2) - 12;
-      const thumbUrl = item.thumbnail?.url
-        ? escapeXml(getThumbnailProxyUrl({ url: item.thumbnail.url, cacheBust }, baseUrl))
-        : item.videoId
-          ? escapeXml(getThumbnailProxyUrl({ videoId: item.videoId, cacheBust }, baseUrl))
-          : "";
+      const thumbUrl = item.thumbnailDataUrl
+        ? escapeXml(item.thumbnailDataUrl)
+        : item.thumbnail?.url
+          ? escapeXml(getThumbnailProxyUrl({ url: item.thumbnail.url, cacheBust }))
+          : item.videoId
+            ? escapeXml(getThumbnailProxyUrl({ videoId: item.videoId, cacheBust }))
+            : "";
 
       return `
         <g transform="translate(70, ${y})">
@@ -276,9 +278,6 @@ export function renderYoutubeCardSvg({
       <g transform="translate(70, 52)">
         <text x="0" y="0" font-family="'Space Grotesk', 'Segoe UI', sans-serif" font-size="24" font-weight="700" fill="${themeTokens.text}">
           ${escapeXml(headerText)}
-        </text>
-        <text x="0" y="22" font-family="'Inter', 'Segoe UI', sans-serif" font-size="12" fill="${themeTokens.muted}">
-          Pulled from the official YouTube Data API
         </text>
       </g>
 
@@ -425,14 +424,12 @@ function wrapText(text, maxChars) {
   return lines;
 }
 
-function getThumbnailProxyUrl({ url, videoId, cacheBust }, baseUrl) {
+function getThumbnailProxyUrl({ url, videoId, cacheBust }) {
   if (!url && !videoId) return "";
   const basePath = url
     ? `/api/youtube-thumbnail?url=${encodeURIComponent(url)}`
     : `/api/youtube-thumbnail?videoId=${encodeURIComponent(videoId)}`;
-  const path = cacheBust ? `${basePath}&cache_bust=${encodeURIComponent(cacheBust)}` : basePath;
-  if (!baseUrl) return path;
-  return `${baseUrl}${path}`;
+  return cacheBust ? `${basePath}&cache_bust=${encodeURIComponent(cacheBust)}` : basePath;
 }
 
 function escapeXml(value) {

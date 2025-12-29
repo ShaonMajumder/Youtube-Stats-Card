@@ -150,6 +150,7 @@ const handleYoutubeCard = async (req, res) => {
     const limit = parseLimitParam(req.query.limit || process.env.LIMIT);
     const showDate = parseBooleanParam(req.query.show_date, parseBooleanParam(process.env.SHOW_DATE, true));
     const showViews = parseBooleanParam(req.query.show_views, parseBooleanParam(process.env.SHOW_VIEWS, true));
+    const embedThumbs = parseBooleanParam(req.query.embed_thumbs, true);
 
     const { channelId, handle: resolvedHandle } = await resolveChannelId({
       apiKey,
@@ -164,12 +165,9 @@ const handleYoutubeCard = async (req, res) => {
     if (showViews) {
       videos = await attachVideoStats(apiKey, videos);
     }
-
-    const forwardedHost = req.get("x-forwarded-host");
-    const forwardedProto = req.get("x-forwarded-proto");
-    const host = forwardedHost || req.get("host");
-    const proto = forwardedProto || req.protocol;
-    const baseUrl = host ? `${proto}://${host}` : "";
+    if (embedThumbs) {
+      videos = await attachInlineThumbnails(videos);
+    }
 
     const svg = renderYoutubeCardSvg({
       videos,
@@ -178,7 +176,6 @@ const handleYoutubeCard = async (req, res) => {
       theme,
       showDate,
       showViews,
-      baseUrl,
       cacheBust: cacheBustParam,
     });
 
@@ -267,6 +264,46 @@ function buildThumbnailFallbacks(url) {
 function buildThumbnailUrlFromVideoId(videoId) {
   if (!videoId) return "";
   return `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/maxresdefault.jpg`;
+}
+
+async function attachInlineThumbnails(videos) {
+  const safeVideos = Array.isArray(videos) ? videos : [];
+  const updates = await Promise.all(
+    safeVideos.map(async (video) => {
+      const thumbnailDataUrl = await fetchThumbnailDataUrl(video);
+      return { ...video, thumbnailDataUrl };
+    }),
+  );
+  return updates;
+}
+
+async function fetchThumbnailDataUrl(video) {
+  if (!video) return null;
+  const url = video.thumbnail?.url ? new URL(video.thumbnail.url) : null;
+  const candidates = buildThumbnailCandidates({ url, videoId: video.videoId });
+  for (const candidate of candidates) {
+    try {
+      const response = await fetch(candidate, { headers: THUMBNAIL_HEADERS });
+      if (!response.ok) {
+        if (DEBUG_LOG) {
+          console.log("[youtube-thumbnail] inline miss", response.status, candidate);
+        }
+        continue;
+      }
+      const contentType = response.headers.get("content-type") || "image/jpeg";
+      const buffer = Buffer.from(await response.arrayBuffer());
+      const base64 = buffer.toString("base64");
+      if (DEBUG_LOG) {
+        console.log("[youtube-thumbnail] inline hit", candidate);
+      }
+      return `data:${contentType};base64,${base64}`;
+    } catch (error) {
+      if (DEBUG_LOG) {
+        console.log("[youtube-thumbnail] inline error", candidate, error?.message || error);
+      }
+    }
+  }
+  return null;
 }
 
 function buildThumbnailCandidates({ url, videoId }) {

@@ -152,7 +152,12 @@ const handleYoutubeCard = async (req, res) => {
     const showViews = parseBooleanParam(req.query.show_views, parseBooleanParam(process.env.SHOW_VIEWS, true));
     const embedThumbs = parseBooleanParam(req.query.embed_thumbs, true);
 
-    const { channelId, handle: resolvedHandle } = await resolveChannelId({
+    const {
+      channelId,
+      handle: resolvedHandle,
+      channelTitle: resolvedChannelTitle,
+      channelThumbnailUrl: resolvedChannelThumbnailUrl,
+    } = await resolveChannelId({
       apiKey,
       handleParam: handle || username,
       channelIdParam,
@@ -168,11 +173,17 @@ const handleYoutubeCard = async (req, res) => {
     if (embedThumbs) {
       videos = await attachInlineThumbnails(videos);
     }
+    const channelMeta = await resolveChannelMeta(videos, {
+      channelTitle: resolvedChannelTitle,
+      channelThumbnailUrl: resolvedChannelThumbnailUrl,
+    });
 
     const svg = renderYoutubeCardSvg({
       videos,
       handle: resolvedHandle || process.env.YOUTUBE_HANDLE || "",
       channelId,
+      channelTitle: channelMeta.channelTitle,
+      channelAvatarDataUrl: channelMeta.channelAvatarDataUrl,
       theme,
       showDate,
       showViews,
@@ -275,6 +286,50 @@ async function attachInlineThumbnails(videos) {
     }),
   );
   return updates;
+}
+
+async function resolveChannelMeta(videos, resolvedMeta) {
+  const safeVideos = Array.isArray(videos) ? videos : [];
+  const preferredTitle = resolvedMeta?.channelTitle || "";
+  const preferredThumb = resolvedMeta?.channelThumbnailUrl || "";
+  const first = safeVideos.find((video) => video?.channelTitle || video?.channelThumbnailUrl);
+
+  if (!first && !preferredTitle && !preferredThumb) {
+    return { channelTitle: "", channelAvatarDataUrl: "" };
+  }
+
+  const channelTitle = preferredTitle || first?.channelTitle || "";
+  const avatarSource = preferredThumb || first?.channelThumbnailUrl || "";
+  const channelAvatarDataUrl = avatarSource ? await fetchInlineImage(avatarSource) : "";
+
+  return { channelTitle, channelAvatarDataUrl };
+}
+
+async function fetchInlineImage(url) {
+  if (!url) return "";
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch (error) {
+    return "";
+  }
+
+  const candidates = buildThumbnailCandidates({ url: parsed, videoId: "" });
+  for (const candidate of candidates) {
+    try {
+      const response = await fetch(candidate, { headers: THUMBNAIL_HEADERS });
+      if (!response.ok) {
+        continue;
+      }
+      const contentType = response.headers.get("content-type") || "image/jpeg";
+      const buffer = Buffer.from(await response.arrayBuffer());
+      return `data:${contentType};base64,${buffer.toString("base64")}`;
+    } catch (error) {
+      continue;
+    }
+  }
+
+  return "";
 }
 
 async function fetchThumbnailDataUrl(video) {

@@ -43,8 +43,13 @@ export async function resolveChannelId({ apiKey, handleParam, channelIdParam, en
     throw createError(400, "Handle or channelId is required");
   }
 
-  const resolvedChannelId = await getChannelIdFromHandle(apiKey, handle);
-  return { channelId: resolvedChannelId, handle };
+  const channelData = await getChannelIdFromHandle(apiKey, handle);
+  return {
+    channelId: channelData.channelId,
+    handle,
+    channelTitle: channelData.channelTitle,
+    channelThumbnailUrl: channelData.channelThumbnailUrl,
+  };
 }
 
 export function getUploadsPlaylistId(channelId) {
@@ -63,11 +68,20 @@ export async function getChannelIdFromHandle(apiKey, handle) {
   url.searchParams.set("key", apiKey);
 
   const data = await fetchJson(url, "Search failed");
-  const channelId = data?.items?.[0]?.id?.channelId;
+  const item = data?.items?.[0];
+  const channelId = item?.id?.channelId;
+
   if (!channelId) {
     throw createError(404, "Channel not found");
   }
-  return channelId;
+
+  const channelTitle = cleanText(item?.snippet?.channelTitle) || "";
+  const channelThumbnailUrl =
+    typeof item?.snippet?.thumbnails?.default?.url === "string"
+      ? item.snippet.thumbnails.default.url
+      : "";
+
+  return { channelId, channelTitle, channelThumbnailUrl };
 }
 
 export async function fetchLatestVideos(apiKey, playlistId, limit) {
@@ -90,6 +104,11 @@ export async function fetchLatestVideos(apiKey, playlistId, limit) {
       const title = cleanText(item?.snippet?.title) || "Untitled video";
       const publishedAt = item?.snippet?.publishedAt || "";
       const thumbnail = pickThumbnail(item?.snippet?.thumbnails);
+      const channelTitle = cleanText(item?.snippet?.channelTitle) || "";
+      const channelThumbnailUrl =
+        typeof item?.snippet?.thumbnails?.default?.url === "string"
+          ? item.snippet.thumbnails.default.url
+          : "";
       if (DEBUG_LOG) {
         console.log("[youtube] video", videoId, {
           title,
@@ -102,6 +121,8 @@ export async function fetchLatestVideos(apiKey, playlistId, limit) {
         title,
         publishedAt,
         thumbnail,
+        channelTitle,
+        channelThumbnailUrl,
         url: `https://www.youtube.com/watch?v=${videoId}`,
       };
     })
@@ -138,6 +159,8 @@ export function buildLatestJson({ channelId, handle, videos }) {
   return {
     channelId,
     handle,
+    channelTitle: videos?.[0]?.channelTitle || "",
+    channelThumbnailUrl: videos?.[0]?.channelThumbnailUrl || "",
     videos: (Array.isArray(videos) ? videos : []).map((video) => ({
       videoId: video.videoId,
       title: video.title,
@@ -160,19 +183,20 @@ export function renderYoutubeCardSvg({
   videos,
   handle,
   channelId,
+  channelTitle,
+  channelAvatarDataUrl,
   theme,
   showDate,
   showViews,
   headerLabel,
-  baseUrl,
   cacheBust,
 }) {
   const themeTokens = getThemeTokens(theme);
   const safeVideos = Array.isArray(videos) ? videos : [];
   const headerText = headerLabel || "Latest YouTube Videos";
-  const subtitle = handle || channelId || "Uploads feed";
+  const subtitle = channelTitle || handle || channelId || "Uploads feed";
 
-  const headerHeight = 120;
+  const headerHeight = 136;
   const titleLineHeight = 16;
   const maxTitleChars = 46;
   const thumbWidth = 90;
@@ -269,15 +293,30 @@ export function renderYoutubeCardSvg({
           <circle cx="1" cy="1" r="0.4" fill="${themeTokens.grain}" />
           <circle cx="3" cy="2" r="0.35" fill="${themeTokens.grain}" />
         </pattern>
+        <clipPath id="channel-avatar-clip">
+          <circle cx="14" cy="14" r="14" />
+        </clipPath>
       </defs>
 
       <rect width="550" height="${totalHeight}" rx="16" fill="url(#grain)" />
       <rect x="18" y="16" width="514" height="${totalHeight - 32}" rx="18" fill="${themeTokens.card}" stroke="${themeTokens.border}" stroke-width="1.5"/>
       <rect x="34" y="34" width="8" height="${totalHeight - 68}" rx="6" fill="${themeTokens.rail}" opacity="0.7" />
 
-      <g transform="translate(70, 52)">
-        <text x="0" y="0" font-family="'Space Grotesk', 'Segoe UI', sans-serif" font-size="24" font-weight="700" fill="${themeTokens.text}">
+      <g transform="translate(70, 50)">
+        ${
+          channelAvatarDataUrl
+            ? `
+        <image href="${escapeXml(channelAvatarDataUrl)}" xlink:href="${escapeXml(
+              channelAvatarDataUrl,
+            )}" x="0" y="-2" width="28" height="28" clip-path="url(#channel-avatar-clip)" />
+        `
+            : ""
+        }
+        <text x="${channelAvatarDataUrl ? 40 : 0}" y="0" font-family="'Space Grotesk', 'Segoe UI', sans-serif" font-size="24" font-weight="700" fill="${themeTokens.text}">
           ${escapeXml(headerText)}
+        </text>
+        <text x="${channelAvatarDataUrl ? 40 : 0}" y="22" font-family="'Inter', 'Segoe UI', sans-serif" font-size="12" fill="${themeTokens.muted}">
+          ${escapeXml(subtitle)}
         </text>
       </g>
 

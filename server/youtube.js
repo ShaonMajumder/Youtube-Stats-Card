@@ -196,13 +196,17 @@ export function renderYoutubeCardSvg({
   const headerText = headerLabel || "Latest YouTube Videos";
   const subtitle = channelTitle || handle || channelId || "Uploads feed";
 
-  const headerHeight = 136;
+  const headerHeight = 150;
   const titleLineHeight = 16;
   const maxTitleChars = 46;
   const thumbWidth = 90;
   const thumbHeight = 50;
   const thumbRadius = 8;
   const textOffsetX = thumbWidth + 14;
+  const headerAvatarSize = 44;
+  const headerTitleSize = 22;
+  const headerSubtitleSize = 16;
+  const headerMetaSize = 11;
 
   const itemsWithLayout = safeVideos.map((video) => {
     const titleLines = wrapText(video.title || "Untitled video", maxTitleChars);
@@ -294,7 +298,7 @@ export function renderYoutubeCardSvg({
           <circle cx="3" cy="2" r="0.35" fill="${themeTokens.grain}" />
         </pattern>
         <clipPath id="channel-avatar-clip">
-          <circle cx="14" cy="14" r="14" />
+          <circle cx="${headerAvatarSize / 2}" cy="${headerAvatarSize / 2}" r="${headerAvatarSize / 2}" />
         </clipPath>
       </defs>
 
@@ -302,20 +306,20 @@ export function renderYoutubeCardSvg({
       <rect x="18" y="16" width="514" height="${totalHeight - 32}" rx="18" fill="${themeTokens.card}" stroke="${themeTokens.border}" stroke-width="1.5"/>
       <rect x="34" y="34" width="8" height="${totalHeight - 68}" rx="6" fill="${themeTokens.rail}" opacity="0.7" />
 
-      <g transform="translate(70, 50)">
+      <g transform="translate(70, 46)">
         ${
           channelAvatarDataUrl
             ? `
         <image href="${escapeXml(channelAvatarDataUrl)}" xlink:href="${escapeXml(
               channelAvatarDataUrl,
-            )}" x="0" y="-2" width="28" height="28" clip-path="url(#channel-avatar-clip)" />
+            )}" x="0" y="-6" width="${headerAvatarSize}" height="${headerAvatarSize}" clip-path="url(#channel-avatar-clip)" />
         `
             : ""
         }
-        <text x="${channelAvatarDataUrl ? 40 : 0}" y="0" font-family="'Space Grotesk', 'Segoe UI', sans-serif" font-size="24" font-weight="700" fill="${themeTokens.text}">
+        <text x="${channelAvatarDataUrl ? headerAvatarSize + 16 : 0}" y="0" font-family="'Space Grotesk', 'Segoe UI', sans-serif" font-size="${headerTitleSize}" font-weight="700" fill="${themeTokens.text}">
           ${escapeXml(headerText)}
         </text>
-        <text x="${channelAvatarDataUrl ? 40 : 0}" y="22" font-family="'Inter', 'Segoe UI', sans-serif" font-size="12" fill="${themeTokens.muted}">
+        <text x="${channelAvatarDataUrl ? headerAvatarSize + 16 : 0}" y="24" font-family="'Inter', 'Segoe UI', sans-serif" font-size="${headerSubtitleSize}" font-weight="600" fill="${themeTokens.text}">
           ${escapeXml(subtitle)}
         </text>
       </g>

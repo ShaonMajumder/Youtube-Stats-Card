@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle2, Copy, ExternalLink, Loader2, PlayCircle } from "lucide-react";
+import { CheckCircle2, Copy, ExternalLink, Loader2, PlayCircle, RefreshCw } from "lucide-react";
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "").trim().replace(/\/$/, "");
 
@@ -27,7 +27,21 @@ const Index = () => {
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
 
-  const generateCard = async () => {
+  const buildRequestUrl = (cacheBust?: string) => {
+    const endpointBase = API_BASE_URL ? `${API_BASE_URL}/api/youtube-card` : "/api/youtube-card";
+    const params = new URLSearchParams();
+
+    params.set("handle", handle.trim());
+    if (limit.trim()) params.set("limit", limit.trim());
+    params.set("theme", theme);
+    params.set("show_date", String(showDate));
+    params.set("show_views", String(showViews));
+    if (cacheBust) params.set("cache_bust", cacheBust);
+
+    return `${endpointBase}?${params.toString()}`;
+  };
+
+  const generateCard = async (forceRefresh = false) => {
     if (!handle.trim()) {
       toast({
         title: "Handle required",
@@ -38,16 +52,8 @@ const Index = () => {
     }
 
     setIsLoading(true);
-    const endpointBase = API_BASE_URL ? `${API_BASE_URL}/api/youtube-card` : "/api/youtube-card";
-    const params = new URLSearchParams();
-
-    params.set("handle", handle.trim());
-    if (limit.trim()) params.set("limit", limit.trim());
-    params.set("theme", theme);
-    params.set("show_date", String(showDate));
-    params.set("show_views", String(showViews));
-
-    const requestUrl = `${endpointBase}?${params.toString()}`;
+    const cacheBust = forceRefresh ? String(Date.now()) : "";
+    const requestUrl = buildRequestUrl(cacheBust);
 
     try {
       const response = await fetch(requestUrl);
@@ -60,7 +66,9 @@ const Index = () => {
       setCardUrl(absoluteUrl);
       toast({
         title: "Success!",
-        description: "Your YouTube stats card is ready.",
+        description: forceRefresh
+          ? "Content refreshed with a new cache key."
+          : "Your YouTube stats card is ready.",
       });
     } catch (error) {
       toast({
@@ -251,9 +259,20 @@ const Index = () => {
           {cardUrl && (
             <section className="mt-14 space-y-6">
               <Card className="border border-foreground/10 bg-card/90 p-8">
-                <div className="flex items-center gap-2 text-sm uppercase tracking-[0.2em] text-muted-foreground">
-                  <CheckCircle2 className="h-4 w-4 text-foreground" />
-                  Preview
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-sm uppercase tracking-[0.2em] text-muted-foreground">
+                    <CheckCircle2 className="h-4 w-4 text-foreground" />
+                    Preview
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => generateCard(true)}
+                    className="h-8 gap-2"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                    Refresh content
+                  </Button>
                 </div>
                 <div className="mt-6 rounded-2xl border border-foreground/10 bg-background/80 p-6">
                   <img src={cardUrl} alt="Latest YouTube Videos" className="mx-auto max-w-full" />

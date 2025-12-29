@@ -165,6 +165,7 @@ export function renderYoutubeCardSvg({
   showViews,
   headerLabel,
   baseUrl,
+  cacheBust,
 }) {
   const themeTokens = getThemeTokens(theme);
   const safeVideos = Array.isArray(videos) ? videos : [];
@@ -218,9 +219,9 @@ export function renderYoutubeCardSvg({
       const cardHeight = item.contentHeight + 4;
       const thumbY = Math.max(0, (item.contentHeight - thumbHeight) / 2) - 12;
       const thumbUrl = item.thumbnail?.url
-        ? escapeXml(getThumbnailProxyUrl({ url: item.thumbnail.url }, baseUrl))
+        ? escapeXml(getThumbnailProxyUrl({ url: item.thumbnail.url, cacheBust }, baseUrl))
         : item.videoId
-          ? escapeXml(getThumbnailProxyUrl({ videoId: item.videoId }, baseUrl))
+          ? escapeXml(getThumbnailProxyUrl({ videoId: item.videoId, cacheBust }, baseUrl))
           : "";
 
       return `
@@ -424,11 +425,12 @@ function wrapText(text, maxChars) {
   return lines;
 }
 
-function getThumbnailProxyUrl({ url, videoId }, baseUrl) {
+function getThumbnailProxyUrl({ url, videoId, cacheBust }, baseUrl) {
   if (!url && !videoId) return "";
-  const path = url
+  const basePath = url
     ? `/api/youtube-thumbnail?url=${encodeURIComponent(url)}`
     : `/api/youtube-thumbnail?videoId=${encodeURIComponent(videoId)}`;
+  const path = cacheBust ? `${basePath}&cache_bust=${encodeURIComponent(cacheBust)}` : basePath;
   if (!baseUrl) return path;
   return `${baseUrl}${path}`;
 }

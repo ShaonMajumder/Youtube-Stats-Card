@@ -57,6 +57,12 @@ app.get("/api/youtube-thumbnail", async (req, res) => {
         ? req.query.videoId.trim()
         : "";
   const resolvedUrl = videoIdParam ? buildThumbnailUrlFromVideoId(videoIdParam) : urlParam;
+  const cacheBustParam =
+    typeof req.query.cache_bust === "string"
+      ? req.query.cache_bust.trim()
+      : typeof req.query.cacheBust === "string"
+        ? req.query.cacheBust.trim()
+        : "";
 
   if (!resolvedUrl) {
     return res.status(400).json({ error: "Thumbnail url or videoId is required" });
@@ -98,7 +104,7 @@ app.get("/api/youtube-thumbnail", async (req, res) => {
       }
       const contentType = response.headers.get("content-type") || "image/jpeg";
       res.setHeader("Content-Type", contentType);
-      res.setHeader("Cache-Control", "public, max-age=86400");
+      res.setHeader("Cache-Control", cacheBustParam ? "no-store" : "public, max-age=3600");
       const buffer = Buffer.from(await response.arrayBuffer());
       return res.status(200).send(buffer);
     }
@@ -110,6 +116,7 @@ app.get("/api/youtube-thumbnail", async (req, res) => {
         attempts,
       });
     }
+    res.setHeader("Cache-Control", "no-store");
     return res.status(lastStatus).json({ error: "Thumbnail fetch failed" });
   } catch (error) {
     console.error("youtube-thumbnail error:", error);
@@ -132,6 +139,12 @@ const handleYoutubeCard = async (req, res) => {
         ? req.query.channelId.trim()
         : "";
   const theme = parseThemeParam(req.query.theme);
+  const cacheBustParam =
+    typeof req.query.cache_bust === "string"
+      ? req.query.cache_bust.trim()
+      : typeof req.query.cacheBust === "string"
+        ? req.query.cacheBust.trim()
+        : "";
 
   try {
     const limit = parseLimitParam(req.query.limit || process.env.LIMIT);
@@ -166,6 +179,7 @@ const handleYoutubeCard = async (req, res) => {
       showDate,
       showViews,
       baseUrl,
+      cacheBust: cacheBustParam,
     });
 
     res.setHeader("Content-Type", "image/svg+xml");

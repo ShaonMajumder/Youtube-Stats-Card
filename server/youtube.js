@@ -218,8 +218,10 @@ export function renderYoutubeCardSvg({
       const cardHeight = item.contentHeight + 4;
       const thumbY = Math.max(0, (item.contentHeight - thumbHeight) / 2) - 12;
       const thumbUrl = item.thumbnail?.url
-        ? escapeXml(getThumbnailProxyUrl(item.thumbnail.url, baseUrl))
-        : "";
+        ? escapeXml(getThumbnailProxyUrl({ url: item.thumbnail.url }, baseUrl))
+        : item.videoId
+          ? escapeXml(getThumbnailProxyUrl({ videoId: item.videoId }, baseUrl))
+          : "";
 
       return `
         <g transform="translate(70, ${y})">
@@ -422,9 +424,11 @@ function wrapText(text, maxChars) {
   return lines;
 }
 
-function getThumbnailProxyUrl(url, baseUrl) {
-  if (!url) return "";
-  const path = `/api/youtube-thumbnail?url=${encodeURIComponent(url)}`;
+function getThumbnailProxyUrl({ url, videoId }, baseUrl) {
+  if (!url && !videoId) return "";
+  const path = url
+    ? `/api/youtube-thumbnail?url=${encodeURIComponent(url)}`
+    : `/api/youtube-thumbnail?videoId=${encodeURIComponent(videoId)}`;
   if (!baseUrl) return path;
   return `${baseUrl}${path}`;
 }

@@ -8,6 +8,6 @@
 
 [[redirects]]
   from = "/api/*"
-  to = "/.netlify/functions/youtube-card"
+  to = "/.netlify/functions/youtube-card/api/:splat"
   status = 200
   force = true

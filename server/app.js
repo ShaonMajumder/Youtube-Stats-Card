@@ -17,19 +17,23 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET,OPTIONS",
 };
 
-const THUMBNAIL_FALLBACKS = [
-  "maxresdefault",
-  "sddefault",
-  "hqdefault",
-  "mqdefault",
-  "default",
+const THUMBNAIL_FILENAMES = [
+  "maxresdefault.jpg",
+  "sddefault.jpg",
+  "hqdefault.jpg",
+  "mqdefault.jpg",
+  "default.jpg",
 ];
 
 const THUMBNAIL_HEADERS = {
   "User-Agent":
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0 Safari/537.36",
   Accept: "image/avif,image/webp,image/*,*/*;q=0.8",
+  Referer: "https://www.youtube.com/",
+  Origin: "https://www.youtube.com",
 };
+
+const DEBUG_LOG = String(process.env.YOUTUBE_DEBUG_LOG || "").toLowerCase() === "true";
 
 const app = express();
 
@@ -46,13 +50,21 @@ app.options("*", (_, res) => {
 
 app.get("/api/youtube-thumbnail", async (req, res) => {
   const urlParam = typeof req.query.url === "string" ? req.query.url.trim() : "";
-  if (!urlParam) {
-    return res.status(400).json({ error: "Thumbnail url is required" });
+  const videoIdParam =
+    typeof req.query.video_id === "string"
+      ? req.query.video_id.trim()
+      : typeof req.query.videoId === "string"
+        ? req.query.videoId.trim()
+        : "";
+  const resolvedUrl = videoIdParam ? buildThumbnailUrlFromVideoId(videoIdParam) : urlParam;
+
+  if (!resolvedUrl) {
+    return res.status(400).json({ error: "Thumbnail url or videoId is required" });
   }
 
   let parsed;
   try {
-    parsed = new URL(urlParam);
+    parsed = new URL(resolvedUrl);
   } catch (error) {
     return res.status(400).json({ error: "Invalid thumbnail url" });
   }
@@ -62,16 +74,28 @@ app.get("/api/youtube-thumbnail", async (req, res) => {
   }
 
   try {
-    const urlsToTry = buildThumbnailFallbacks(parsed);
+    const debugEnabled =
+      DEBUG_LOG || (typeof req.query.debug === "string" && req.query.debug.trim() === "true");
+    const urlsToTry = buildThumbnailCandidates({ url: parsed, videoId: videoIdParam });
     let lastStatus = 502;
+    const attempts = [];
 
     for (const url of urlsToTry) {
       const response = await fetch(url, { headers: THUMBNAIL_HEADERS });
       if (!response.ok) {
         lastStatus = response.status;
+        if (debugEnabled) {
+          attempts.push({ url, status: response.status });
+        }
+        if (DEBUG_LOG) {
+          console.log("[youtube-thumbnail] miss", response.status, url);
+        }
         continue;
       }
 
+      if (DEBUG_LOG) {
+        console.log("[youtube-thumbnail] hit", url);
+      }
       const contentType = response.headers.get("content-type") || "image/jpeg";
       res.setHeader("Content-Type", contentType);
       res.setHeader("Cache-Control", "public, max-age=86400");
@@ -79,6 +103,13 @@ app.get("/api/youtube-thumbnail", async (req, res) => {
       return res.status(200).send(buffer);
     }
 
+    if (debugEnabled) {
+      return res.status(lastStatus).json({
+        error: "Thumbnail fetch failed",
+        lastStatus,
+        attempts,
+      });
+    }
     return res.status(lastStatus).json({ error: "Thumbnail fetch failed" });
   } catch (error) {
     console.error("youtube-thumbnail error:", error);
@@ -206,17 +237,59 @@ export default app;
 
 function buildThumbnailFallbacks(url) {
   const pathParts = url.pathname.split("/");
-  const file = pathParts[pathParts.length - 1];
-  const match = file.match(/^([a-z]+)default\.jpg$/);
-  if (!match) return [url.toString()];
+  const file = pathParts[pathParts.length - 1].toLowerCase();
+  const startIndex = THUMBNAIL_FILENAMES.indexOf(file);
+  if (startIndex === -1) return [url.toString()];
 
-  const current = match[1];
-  const startIndex = Math.max(0, THUMBNAIL_FALLBACKS.indexOf(current));
-  const fallbacks = THUMBNAIL_FALLBACKS.slice(startIndex);
-  return fallbacks.map((variant) => {
+  const fallbacks = THUMBNAIL_FILENAMES.slice(startIndex);
+  return fallbacks.map((filename) => {
     const copy = new URL(url.toString());
-    pathParts[pathParts.length - 1] = `${variant}default.jpg`;
+    pathParts[pathParts.length - 1] = filename;
     copy.pathname = pathParts.join("/");
     return copy.toString();
   });
+}
+
+function buildThumbnailUrlFromVideoId(videoId) {
+  if (!videoId) return "";
+  return `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/maxresdefault.jpg`;
+}
+
+function buildThumbnailCandidates({ url, videoId }) {
+  if (videoId) {
+    return buildThumbnailCandidatesFromVideoId(videoId);
+  }
+  if (!url) return [];
+  const candidates = [...buildThumbnailFallbacks(url)];
+  const altHost = swapThumbnailHost(url);
+  if (altHost) {
+    candidates.push(...buildThumbnailFallbacks(altHost));
+  }
+  return Array.from(new Set(candidates));
+}
+
+function buildThumbnailCandidatesFromVideoId(videoId) {
+  const safeId = encodeURIComponent(videoId);
+  const hosts = ["i.ytimg.com", "img.youtube.com"];
+  const filenames = THUMBNAIL_FILENAMES;
+  const urls = [];
+  hosts.forEach((host) => {
+    filenames.forEach((filename) => {
+      urls.push(`https://${host}/vi/${safeId}/${filename}`);
+    });
+  });
+  return urls;
+}
+
+function swapThumbnailHost(url) {
+  const altHost =
+    url.hostname === "i.ytimg.com"
+      ? "img.youtube.com"
+      : url.hostname === "img.youtube.com"
+        ? "i.ytimg.com"
+        : null;
+  if (!altHost) return null;
+  const copy = new URL(url.toString());
+  copy.hostname = altHost;
+  return copy;
 }

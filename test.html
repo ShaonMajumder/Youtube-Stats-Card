@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>YouTube Handle Test</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: #0b0b10;
+      color: #f8fafc;
+      padding: 24px;
+    }
+    input, button {
+      padding: 10px;
+      font-size: 14px;
+      margin-right: 8px;
+    }
+    button {
+      cursor: pointer;
+    }
+    pre {
+      background: #111118;
+      padding: 16px;
+      border-radius: 8px;
+      overflow-x: auto;
+      margin-top: 16px;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>YouTube Handle → Latest Videos</h2>
+
+  <label>
+    Handle:
+    <input id="handle" value="ShaonMajumder" />
+  </label>
+
+  <label>
+    API Key:
+    <input id="apiKey" placeholder="AIza..." size="45" />
+  </label>
+
+  <button onclick="run()">Run</button>
+
+  <pre id="output">Waiting…</pre>
+
+  <script>
+    const API_BASE_URL = "https://www.googleapis.com/youtube/v3";
+
+    async function getChannelIdFromHandle(apiKey, handle) {
+      if (!handle.startsWith("@")) handle = "@" + handle;
+
+      const url = new URL(API_BASE_URL + "/search");
+      url.searchParams.set("part", "snippet");
+      url.searchParams.set("type", "channel");
+      url.searchParams.set("q", handle);
+      url.searchParams.set("maxResults", "1");
+      url.searchParams.set("key", apiKey);
+
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data?.error?.message || "Search failed");
+
+      const channelId = data?.items?.[0]?.id?.channelId;
+      if (!channelId) throw new Error("Channel not found");
+
+      return channelId;
+    }
+
+    function getUploadsPlaylistId(channelId) {
+      if (!channelId.startsWith("UC")) {
+        throw new Error("Invalid channelId");
+      }
+      return "UU" + channelId.slice(2);
+    }
+
+    async function getLatestVideos(apiKey, playlistId) {
+      const url = new URL(API_BASE_URL + "/playlistItems");
+      url.searchParams.set("part", "snippet,contentDetails");
+      url.searchParams.set("playlistId", playlistId);
+      url.searchParams.set("maxResults", "5");
+      url.searchParams.set("key", apiKey);
+
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data?.error?.message || "Playlist fetch failed");
+
+      return data.items.map(item => ({
+        videoId: item.contentDetails.videoId,
+        title: item.snippet.title,
+        publishedAt: item.snippet.publishedAt,
+        url: "https://www.youtube.com/watch?v=" + item.contentDetails.videoId
+      }));
+    }
+
+    async function run() {
+      const output = document.getElementById("output");
+      output.textContent = "Loading…";
+
+      try {
+        const handle = document.getElementById("handle").value.trim();
+        const apiKey = document.getElementById("apiKey").value.trim();
+
+        const channelId = await getChannelIdFromHandle(apiKey, handle);
+        const playlistId = getUploadsPlaylistId(channelId);
+        const videos = await getLatestVideos(apiKey, playlistId);
+
+        output.textContent = JSON.stringify({
+          handle: "@" + handle,
+          channelId,
+          playlistId,
+          videos
+        }, null, 2);
+
+      } catch (err) {
+        output.textContent = "ERROR:\n" + err.message;
+      }
+    }
+  </script>
+
+</body>
+</html>

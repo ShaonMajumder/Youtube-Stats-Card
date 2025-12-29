@@ -1,0 +1,94 @@
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here.
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    --background: 210 24% 98%;
+    --foreground: 222 18% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 18% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 18% 12%;
+
+    --primary: 0 85% 55%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 16% 94%;
+    --secondary-foreground: 222 18% 14%;
+
+    --muted: 210 16% 93%;
+    --muted-foreground: 220 8% 46%;
+
+    --accent: 0 85% 55%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 12% 85%;
+    --input: 220 12% 85%;
+    --ring: 0 85% 55%;
+
+    --radius: 1.1rem;
+
+    --gradient-primary: linear-gradient(135deg, hsl(0 85% 55%), hsl(0 85% 62%));
+    --gradient-dark: linear-gradient(135deg, hsl(222 20% 12%), hsl(222 20% 20%));
+  }
+
+  .dark {
+    --background: 230 18% 8%;
+    --foreground: 0 0% 98%;
+
+    --card: 230 16% 12%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 230 16% 12%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 0 85% 55%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 230 12% 16%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 230 12% 16%;
+    --muted-foreground: 0 0% 72%;
+
+    --accent: 0 85% 55%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 230 12% 22%;
+    --input: 230 12% 22%;
+    --ring: 0 85% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Plus Jakarta Sans", "Segoe UI", sans-serif;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: "Space Grotesk", "Segoe UI", sans-serif;
+  }
+}

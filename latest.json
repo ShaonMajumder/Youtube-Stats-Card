@@ -1,0 +1,32 @@
+{
+  "channelId": "UC0000000000000000000",
+  "handle": "@example",
+  "videos": [
+    {
+      "videoId": "dQw4w9WgXcQ",
+      "title": "Sample Upload Title One",
+      "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      "publishedAt": "2025-01-01T00:00:00Z",
+      "date": "Jan 01, 2025",
+      "views": 12345,
+      "thumbnail": {
+        "url": "https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg",
+        "width": 320,
+        "height": 180
+      }
+    },
+    {
+      "videoId": "oHg5SJYRHA0",
+      "title": "Sample Upload Title Two",
+      "url": "https://www.youtube.com/watch?v=oHg5SJYRHA0",
+      "publishedAt": "2025-01-02T00:00:00Z",
+      "date": "Jan 02, 2025",
+      "views": 67890,
+      "thumbnail": {
+        "url": "https://i.ytimg.com/vi/oHg5SJYRHA0/mqdefault.jpg",
+        "width": 320,
+        "height": 180
+      }
+    }
+  ]
+}

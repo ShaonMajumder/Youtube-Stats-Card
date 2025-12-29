@@ -17,6 +17,20 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET,OPTIONS",
 };
 
+const THUMBNAIL_FALLBACKS = [
+  "maxresdefault",
+  "sddefault",
+  "hqdefault",
+  "mqdefault",
+  "default",
+];
+
+const THUMBNAIL_HEADERS = {
+  "User-Agent":
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0 Safari/537.36",
+  Accept: "image/avif,image/webp,image/*,*/*;q=0.8",
+};
+
 const app = express();
 
 app.use((_, res, next) => {
@@ -48,16 +62,24 @@ app.get("/api/youtube-thumbnail", async (req, res) => {
   }
 
   try {
-    const response = await fetch(parsed.toString());
-    if (!response.ok) {
-      return res.status(response.status).json({ error: "Thumbnail fetch failed" });
+    const urlsToTry = buildThumbnailFallbacks(parsed);
+    let lastStatus = 502;
+
+    for (const url of urlsToTry) {
+      const response = await fetch(url, { headers: THUMBNAIL_HEADERS });
+      if (!response.ok) {
+        lastStatus = response.status;
+        continue;
+      }
+
+      const contentType = response.headers.get("content-type") || "image/jpeg";
+      res.setHeader("Content-Type", contentType);
+      res.setHeader("Cache-Control", "public, max-age=86400");
+      const buffer = Buffer.from(await response.arrayBuffer());
+      return res.status(200).send(buffer);
     }
 
-    const contentType = response.headers.get("content-type") || "image/jpeg";
-    res.setHeader("Content-Type", contentType);
-    res.setHeader("Cache-Control", "public, max-age=86400");
-    const buffer = Buffer.from(await response.arrayBuffer());
-    return res.status(200).send(buffer);
+    return res.status(lastStatus).json({ error: "Thumbnail fetch failed" });
   } catch (error) {
     console.error("youtube-thumbnail error:", error);
     return res.status(500).json({ error: "Thumbnail proxy error" });
@@ -181,3 +203,20 @@ app.get("/", (_, res) => {
 });
 
 export default app;
+
+function buildThumbnailFallbacks(url) {
+  const pathParts = url.pathname.split("/");
+  const file = pathParts[pathParts.length - 1];
+  const match = file.match(/^([a-z]+)default\.jpg$/);
+  if (!match) return [url.toString()];
+
+  const current = match[1];
+  const startIndex = Math.max(0, THUMBNAIL_FALLBACKS.indexOf(current));
+  const fallbacks = THUMBNAIL_FALLBACKS.slice(startIndex);
+  return fallbacks.map((variant) => {
+    const copy = new URL(url.toString());
+    pathParts[pathParts.length - 1] = `${variant}default.jpg`;
+    copy.pathname = pathParts.join("/");
+    return copy.toString();
+  });
+}

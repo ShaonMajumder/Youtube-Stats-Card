@@ -315,6 +315,9 @@ export function renderYoutubeCardSvg({
             <feFuncA type="table" tableValues="0 0.07" />
           </feComponentTransfer>
         </filter>
+        <filter id="glass-blur">
+          <feGaussianBlur stdDeviation="6" />
+        </filter>
         <clipPath id="channel-avatar-clip">
           <circle cx="${avatarCx}" cy="${avatarCy}" r="${avatarSize / 2}" />
         </clipPath>
@@ -324,6 +327,8 @@ export function renderYoutubeCardSvg({
       <rect x="6" y="6" width="${cardWidth - 12}" height="${totalHeight - 12}" rx="22" fill="none" stroke="#2a2a35" stroke-width="2" />
       <rect x="${outerPadding}" y="${outerPadding}" width="${cardWidth - 2 * outerPadding}" height="${totalHeight - 2 * outerPadding}" rx="20" fill="#121218" stroke="#2b2b33" stroke-width="1.5" />
       <rect x="${outerPadding}" y="${outerPadding}" width="${cardWidth - 2 * outerPadding}" height="${totalHeight - 2 * outerPadding}" rx="20" fill="url(#dust)" filter="url(#grain)" />
+      <rect x="${outerPadding + 6}" y="${outerPadding + 6}" width="${cardWidth - 2 * outerPadding - 12}" height="${totalHeight - 2 * outerPadding - 12}" rx="18" fill="#ffffff" opacity="0.05" filter="url(#glass-blur)" />
+      <rect x="${outerPadding + 10}" y="${outerPadding + 10}" width="${cardWidth - 2 * outerPadding - 20}" height="${totalHeight - 2 * outerPadding - 20}" rx="16" fill="none" stroke="#ffffff" stroke-opacity="0.08" />
 
       <rect x="${outerPadding}" y="${outerPadding}" width="${cardWidth - 2 * outerPadding}" height="${headerBarHeight}" rx="14" fill="#1b1b24" stroke="#2f2f3a" stroke-width="1" />
       <g transform="translate(${cardWidth - outerPadding - 140}, ${outerPadding + 8})">

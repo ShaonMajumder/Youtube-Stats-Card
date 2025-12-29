@@ -196,46 +196,54 @@ export function renderYoutubeCardSvg({
   const headerText = headerLabel || "Latest YouTube Videos";
   const subtitle = channelTitle || handle || channelId || "Uploads feed";
 
+  const cardWidth = 600;
+  const outerPadding = 18;
   const headerHeight = 150;
-  const titleLineHeight = 16;
-  const maxTitleChars = 46;
-  const thumbWidth = 90;
-  const thumbHeight = 50;
-  const thumbRadius = 8;
-  const textOffsetX = thumbWidth + 14;
-  const headerAvatarSize = 44;
-  const headerTitleSize = 22;
-  const headerSubtitleSize = 16;
-  const headerMetaSize = 11;
+  const headerBarHeight = 48;
+  const avatarSize = 56;
+  const avatarRing = 4;
+  const titleLineHeight = 18;
+  const maxTitleChars = 52;
+  const maxTitleLines = 2;
+  const thumbWidth = 110;
+  const thumbHeight = 62;
+  const thumbRadius = 10;
+  const rowGap = 14;
+  const rowPadding = 14;
+  const textOffsetX = thumbWidth + 24;
 
   const itemsWithLayout = safeVideos.map((video) => {
-    const titleLines = wrapText(video.title || "Untitled video", maxTitleChars);
+    const titleLines = wrapText(video.title || "Untitled video", maxTitleChars).slice(
+      0,
+      maxTitleLines,
+    );
     const titleHeight = titleLines.length * titleLineHeight;
     const metaHeight = showDate || showViews ? 16 : 0;
-    const textHeight = titleHeight + metaHeight + 12;
-    const thumbBlockHeight = thumbHeight + 8;
-    const contentHeight = Math.max(textHeight, thumbBlockHeight);
-    return { ...video, titleLines, titleHeight, contentHeight, textHeight };
+    const contentHeight = Math.max(thumbHeight, titleHeight + metaHeight) + rowPadding;
+    return { ...video, titleLines, titleHeight, contentHeight };
   });
 
   const totalHeight =
-    headerHeight + itemsWithLayout.reduce((sum, item) => sum + item.contentHeight + 12, 0) + 24;
+    headerHeight + itemsWithLayout.reduce((sum, item) => sum + item.contentHeight + rowGap, 0) + 40;
 
   let cursorY = headerHeight;
   const svgItems = itemsWithLayout
     .map((item) => {
       const y = cursorY;
-      cursorY += item.contentHeight + 12;
+      cursorY += item.contentHeight + rowGap;
 
       const safeLink = escapeXml(item.url || "#");
       const titleTspans = item.titleLines
         .map(
           (line, i) =>
-            `<tspan x="${textOffsetX}" dy="${i === 0 ? 0 : titleLineHeight}">${escapeXml(line)}</tspan>`,
+            `<tspan x="${textOffsetX}" dy="${i === 0 ? 0 : titleLineHeight}">${escapeXml(
+              line,
+            )}</tspan>`,
         )
         .join("");
 
-      const metaY = item.titleHeight + 8;
+      const titleStartY = rowPadding + 8;
+      const metaY = titleStartY + item.titleHeight + 6;
       const metaLine = renderMetaLine({
         date: showDate ? formatDate(item.publishedAt) : "",
         views: showViews ? item.views : null,
@@ -244,8 +252,7 @@ export function renderYoutubeCardSvg({
         x: textOffsetX,
       });
 
-      const cardHeight = item.contentHeight + 4;
-      const thumbY = Math.max(0, (item.contentHeight - thumbHeight) / 2) - 12;
+      const thumbY = (item.contentHeight - thumbHeight) / 2;
       const thumbUrl = item.thumbnailDataUrl
         ? escapeXml(item.thumbnailDataUrl)
         : item.thumbnail?.url
@@ -255,19 +262,20 @@ export function renderYoutubeCardSvg({
             : "";
 
       return `
-        <g transform="translate(70, ${y})">
-          <rect x="-12" y="-18" width="510" height="${cardHeight}" rx="12" fill="${themeTokens.cardAccent}" opacity="0.45" />
+        <g transform="translate(${outerPadding + 18}, ${y})">
+          <rect x="0" y="0" width="${cardWidth - 2 * (outerPadding + 18)}" height="${item.contentHeight}" rx="14" fill="${themeTokens.cardAccent}" stroke="${themeTokens.border}" stroke-width="1" opacity="0.95" />
+          <rect x="8" y="${item.contentHeight - 18}" width="6" height="6" rx="3" fill="${themeTokens.accent}" />
           ${
             thumbUrl
               ? `
-          <image href="${thumbUrl}" xlink:href="${thumbUrl}" x="0" y="${thumbY}" width="${thumbWidth}" height="${thumbHeight}" preserveAspectRatio="xMidYMid slice" />
+          <image href="${thumbUrl}" xlink:href="${thumbUrl}" x="16" y="${thumbY}" width="${thumbWidth}" height="${thumbHeight}" preserveAspectRatio="xMidYMid slice" />
           `
               : `
-          <rect x="0" y="${thumbY}" width="${thumbWidth}" height="${thumbHeight}" rx="${thumbRadius}" fill="${themeTokens.border}" opacity="0.4" />
+          <rect x="16" y="${thumbY}" width="${thumbWidth}" height="${thumbHeight}" rx="${thumbRadius}" fill="${themeTokens.border}" opacity="0.4" />
           `
           }
           <a xlink:href="${safeLink}" target="_blank">
-            <text x="0" y="0" font-family="'Space Grotesk', 'Segoe UI', sans-serif" font-size="14.5" font-weight="600" fill="${themeTokens.link}">
+            <text x="0" y="${titleStartY}" font-family="'Space Grotesk', 'Segoe UI', sans-serif" font-size="15" font-weight="600" fill="${themeTokens.link}">
               ${titleTspans}
             </text>
           </a>
@@ -277,60 +285,70 @@ export function renderYoutubeCardSvg({
     })
     .join("");
 
-  const footer = subtitle
+  const avatarCx = outerPadding + 40;
+  const avatarCy = headerBarHeight + 42;
+  const headerAvatar = channelAvatarDataUrl
     ? `
-      <text x="520" y="${totalHeight - 18}" font-family="'Segoe UI', sans-serif" font-size="10" fill="${themeTokens.accent}" text-anchor="end" opacity="0.7">
-        ${escapeXml(subtitle)}
-      </text>
+      <circle cx="${avatarCx}" cy="${avatarCy}" r="${avatarSize / 2 + avatarRing}" fill="${themeTokens.accentSoft}" opacity="0.7" />
+      <circle cx="${avatarCx}" cy="${avatarCy}" r="${avatarSize / 2 + 1}" fill="${themeTokens.card}" opacity="0.85" />
+      <image href="${escapeXml(channelAvatarDataUrl)}" xlink:href="${escapeXml(
+        channelAvatarDataUrl,
+      )}" x="${avatarCx - avatarSize / 2}" y="${avatarCy - avatarSize / 2}" width="${avatarSize}" height="${avatarSize}" clip-path="url(#channel-avatar-clip)" />
     `
     : "";
 
   return `
-    <svg width="550" height="${totalHeight}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <svg width="${cardWidth}" height="${totalHeight}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
       <defs>
-        <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" style="stop-color:${themeTokens.accent};stop-opacity:1" />
-          <stop offset="100%" style="stop-color:${themeTokens.accentSoft};stop-opacity:1" />
+        <linearGradient id="card-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:#0b0b10;stop-opacity:1" />
+          <stop offset="100%" style="stop-color:#1c1c24;stop-opacity:1" />
         </linearGradient>
-        <pattern id="grain" x="0" y="0" width="4" height="4" patternUnits="userSpaceOnUse">
-          <rect width="4" height="4" fill="${themeTokens.base}" />
-          <circle cx="1" cy="1" r="0.4" fill="${themeTokens.grain}" />
-          <circle cx="3" cy="2" r="0.35" fill="${themeTokens.grain}" />
-        </pattern>
+        <radialGradient id="dust" cx="30%" cy="40%" r="70%">
+          <stop offset="0%" stop-color="#ffffff" stop-opacity="0.08" />
+          <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+        </radialGradient>
+        <filter id="grain">
+          <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch" />
+          <feColorMatrix type="saturate" values="0" />
+          <feComponentTransfer>
+            <feFuncA type="table" tableValues="0 0.07" />
+          </feComponentTransfer>
+        </filter>
         <clipPath id="channel-avatar-clip">
-          <circle cx="${headerAvatarSize / 2}" cy="${headerAvatarSize / 2}" r="${headerAvatarSize / 2}" />
+          <circle cx="${avatarCx}" cy="${avatarCy}" r="${avatarSize / 2}" />
         </clipPath>
       </defs>
 
-      <rect width="550" height="${totalHeight}" rx="16" fill="url(#grain)" />
-      <rect x="18" y="16" width="514" height="${totalHeight - 32}" rx="18" fill="${themeTokens.card}" stroke="${themeTokens.border}" stroke-width="1.5"/>
-      <rect x="34" y="34" width="8" height="${totalHeight - 68}" rx="6" fill="${themeTokens.rail}" opacity="0.7" />
+      <rect width="${cardWidth}" height="${totalHeight}" rx="26" fill="url(#card-bg)" />
+      <rect x="6" y="6" width="${cardWidth - 12}" height="${totalHeight - 12}" rx="22" fill="none" stroke="#2a2a35" stroke-width="2" />
+      <rect x="${outerPadding}" y="${outerPadding}" width="${cardWidth - 2 * outerPadding}" height="${totalHeight - 2 * outerPadding}" rx="20" fill="#121218" stroke="#2b2b33" stroke-width="1.5" />
+      <rect x="${outerPadding}" y="${outerPadding}" width="${cardWidth - 2 * outerPadding}" height="${totalHeight - 2 * outerPadding}" rx="20" fill="url(#dust)" filter="url(#grain)" />
 
-      <g transform="translate(70, 46)">
-        ${
-          channelAvatarDataUrl
-            ? `
-        <image href="${escapeXml(channelAvatarDataUrl)}" xlink:href="${escapeXml(
-              channelAvatarDataUrl,
-            )}" x="0" y="-6" width="${headerAvatarSize}" height="${headerAvatarSize}" clip-path="url(#channel-avatar-clip)" />
-        `
-            : ""
-        }
-        <text x="${channelAvatarDataUrl ? headerAvatarSize + 16 : 0}" y="0" font-family="'Space Grotesk', 'Segoe UI', sans-serif" font-size="${headerTitleSize}" font-weight="700" fill="${themeTokens.text}">
-          ${escapeXml(headerText)}
-        </text>
-        <text x="${channelAvatarDataUrl ? headerAvatarSize + 16 : 0}" y="24" font-family="'Inter', 'Segoe UI', sans-serif" font-size="${headerSubtitleSize}" font-weight="600" fill="${themeTokens.text}">
-          ${escapeXml(subtitle)}
-        </text>
+      <rect x="${outerPadding}" y="${outerPadding}" width="${cardWidth - 2 * outerPadding}" height="${headerBarHeight}" rx="14" fill="#1b1b24" stroke="#2f2f3a" stroke-width="1" />
+      <g transform="translate(${cardWidth - outerPadding - 140}, ${outerPadding + 8})">
+        <rect x="0" y="0" rx="12" ry="12" width="40" height="32" fill="#e22c2c" />
+        <polygon points="15,9 15,23 27,16" fill="#ffffff" />
+        <text x="50" y="23" font-family="'Space Grotesk', 'Segoe UI', sans-serif" font-size="18" font-weight="700" fill="#ffffff">YouTube</text>
       </g>
+
+      ${headerAvatar}
+      <text x="${outerPadding + 90}" y="${headerBarHeight + 38}" font-family="'Space Grotesk', 'Segoe UI', sans-serif" font-size="20" font-weight="700" fill="#f2f2f4">
+        ${escapeXml(headerText)}
+      </text>
+      <text x="${outerPadding + 90}" y="${headerBarHeight + 58}" font-family="'Inter', 'Segoe UI', sans-serif" font-size="13" font-weight="600" fill="#b7b7bf">
+        ${escapeXml(subtitle)}
+      </text>
+      <line x1="${outerPadding + 90}" y1="${headerBarHeight + 70}" x2="${cardWidth - outerPadding - 30}" y2="${headerBarHeight + 70}" stroke="#2f2f3a" stroke-width="1" />
 
       ${svgItems}
 
-      <g transform="translate(0, ${totalHeight - 12})">
-        <text x="70" y="0" font-family="'Inter', 'Segoe UI', sans-serif" font-size="10" fill="${themeTokens.muted}" opacity="0.7">
+      <g transform="translate(0, ${totalHeight - 22})">
+        <line x1="${outerPadding + 40}" y1="0" x2="${cardWidth / 2 - 70}" y2="0" stroke="#2f2f3a" stroke-width="1" />
+        <text x="${cardWidth / 2}" y="4" font-family="'Inter', 'Segoe UI', sans-serif" font-size="11" fill="#9d9daa" text-anchor="middle">
           YouTube Stats Card
         </text>
-        ${footer}
+        <line x1="${cardWidth / 2 + 70}" y1="0" x2="${cardWidth - outerPadding - 40}" y2="0" stroke="#2f2f3a" stroke-width="1" />
       </g>
     </svg>
   `;

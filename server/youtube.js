@@ -363,7 +363,7 @@ function cleanText(value) {
 
 function pickThumbnail(thumbnails) {
   if (!thumbnails || typeof thumbnails !== "object") return null;
-  const order = ["maxres", "standard", "high", "medium", "default"];
+  const order = ["default", "medium", "high", "standard", "maxres"];
   for (const key of order) {
     const entry = thumbnails[key];
     if (entry?.url) {

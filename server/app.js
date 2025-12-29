@@ -263,7 +263,7 @@ function buildThumbnailFallbacks(url) {
 
 function buildThumbnailUrlFromVideoId(videoId) {
   if (!videoId) return "";
-  return `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/maxresdefault.jpg`;
+  return `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/default.jpg`;
 }
 
 async function attachInlineThumbnails(videos) {

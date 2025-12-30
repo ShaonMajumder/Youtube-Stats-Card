@@ -24,6 +24,7 @@ const Index = () => {
   const [showViews, setShowViews] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [cardUrl, setCardUrl] = useState("");
+  const [isFallbackCard, setIsFallbackCard] = useState(false);
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
 
@@ -58,12 +59,18 @@ const Index = () => {
     try {
       const response = await fetch(requestUrl);
       if (!response.ok) {
-        throw new Error("Failed to generate card");
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data?.error || "Failed to generate card");
       }
+      const cardStatus = response.headers.get("X-Card-Status");
       const absoluteUrl = API_BASE_URL
         ? requestUrl
         : `${typeof window !== "undefined" ? window.location.origin : ""}${requestUrl}`;
       setCardUrl(absoluteUrl);
+      setIsFallbackCard(cardStatus === "fallback");
+      if (cardStatus === "fallback") {
+        throw new Error("Failed to generate card. Showing fallback content.");
+      }
       toast({
         title: "Success!",
         description: forceRefresh
@@ -71,9 +78,16 @@ const Index = () => {
           : "Your YouTube stats card is ready.",
       });
     } catch (error) {
+      setIsFallbackCard(true);
+      const message =
+        error instanceof Error && error.message.includes("Network error")
+          ? "Network error. Please check your internet connection."
+          : error instanceof Error && error.message.includes("fallback")
+          ? "Failed to generate card. Showing fallback content."
+          : "Failed to generate card. Please check the handle.";
       toast({
         title: "Error",
-        description: "Failed to generate card. Please check the handle.",
+        description: message,
         variant: "destructive",
       });
     } finally {
@@ -279,73 +293,75 @@ const Index = () => {
                 </div>
               </Card>
 
-              <Card className="border border-foreground/10 bg-card/90 p-8">
-                <h3 className="text-xl font-semibold">Embed Options</h3>
+              {!isFallbackCard && (
+                <Card className="border border-foreground/10 bg-card/90 p-8">
+                  <h3 className="text-xl font-semibold">Embed Options</h3>
 
-                <div className="mt-6 space-y-4">
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <label className="text-sm font-medium text-muted-foreground">Markdown</label>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => copyToClipboard(markdownCode)}
-                        className="h-8"
-                      >
-                        {copied ? (
-                          <CheckCircle2 className="h-4 w-4 text-foreground" />
-                        ) : (
-                          <Copy className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </div>
-                    <code className="mt-2 block w-full rounded-2xl border border-foreground/10 bg-background/80 p-3 text-sm font-mono break-all">
-                      {markdownCode}
-                    </code>
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <label className="text-sm font-medium text-muted-foreground">HTML</label>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => copyToClipboard(htmlCode)}
-                        className="h-8"
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <code className="mt-2 block w-full rounded-2xl border border-foreground/10 bg-background/80 p-3 text-sm font-mono break-all">
-                      {htmlCode}
-                    </code>
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <label className="text-sm font-medium text-muted-foreground">Direct URL</label>
-                      <div className="flex items-center gap-2">
+                  <div className="mt-6 space-y-4">
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <label className="text-sm font-medium text-muted-foreground">Markdown</label>
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => copyToClipboard(cardUrl)}
+                          onClick={() => copyToClipboard(markdownCode)}
+                          className="h-8"
+                        >
+                          {copied ? (
+                            <CheckCircle2 className="h-4 w-4 text-foreground" />
+                          ) : (
+                            <Copy className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                      <code className="mt-2 block w-full rounded-2xl border border-foreground/10 bg-background/80 p-3 text-sm font-mono break-all">
+                        {markdownCode}
+                      </code>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <label className="text-sm font-medium text-muted-foreground">HTML</label>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => copyToClipboard(htmlCode)}
                           className="h-8"
                         >
                           <Copy className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="sm" asChild className="h-8">
-                          <a href={cardUrl} target="_blank" rel="noreferrer">
-                            <ExternalLink className="h-4 w-4" />
-                          </a>
-                        </Button>
                       </div>
+                      <code className="mt-2 block w-full rounded-2xl border border-foreground/10 bg-background/80 p-3 text-sm font-mono break-all">
+                        {htmlCode}
+                      </code>
                     </div>
-                    <code className="mt-2 block w-full rounded-2xl border border-foreground/10 bg-background/80 p-3 text-sm font-mono break-all">
-                      {cardUrl}
-                    </code>
+
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <label className="text-sm font-medium text-muted-foreground">Direct URL</label>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => copyToClipboard(cardUrl)}
+                            className="h-8"
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm" asChild className="h-8">
+                            <a href={cardUrl} target="_blank" rel="noreferrer">
+                              <ExternalLink className="h-4 w-4" />
+                            </a>
+                          </Button>
+                        </div>
+                      </div>
+                      <code className="mt-2 block w-full rounded-2xl border border-foreground/10 bg-background/80 p-3 text-sm font-mono break-all">
+                        {cardUrl}
+                      </code>
+                    </div>
                   </div>
-                </div>
-              </Card>
+                </Card>
+              )}
             </section>
           )}
 

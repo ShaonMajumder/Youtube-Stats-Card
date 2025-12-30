@@ -130,6 +130,15 @@ const handleYoutubeCard = async (req, res) => {
     return res.status(500).json({ error: "Missing YOUTUBE_API_KEY" });
   }
 
+  let resolvedHandle = "";
+  let resolvedChannelId = "";
+  let showDate = parseBooleanParam(process.env.SHOW_DATE, true);
+  let showViews = parseBooleanParam(process.env.SHOW_VIEWS, true);
+  let requestedLimit = Number.parseInt(process.env.LIMIT || "5", 10);
+  if (Number.isNaN(requestedLimit) || requestedLimit <= 0) {
+    requestedLimit = 5;
+  }
+
   const handle = typeof req.query.handle === "string" ? req.query.handle.trim() : "";
   const username = typeof req.query.username === "string" ? req.query.username.trim() : "";
   const channelIdParam =
@@ -147,9 +156,9 @@ const handleYoutubeCard = async (req, res) => {
         : "";
 
   try {
-    const limit = parseLimitParam(req.query.limit || process.env.LIMIT);
-    const showDate = parseBooleanParam(req.query.show_date, parseBooleanParam(process.env.SHOW_DATE, true));
-    const showViews = parseBooleanParam(req.query.show_views, parseBooleanParam(process.env.SHOW_VIEWS, true));
+    requestedLimit = parseLimitParam(req.query.limit || process.env.LIMIT);
+    showDate = parseBooleanParam(req.query.show_date, parseBooleanParam(process.env.SHOW_DATE, true));
+    showViews = parseBooleanParam(req.query.show_views, parseBooleanParam(process.env.SHOW_VIEWS, true));
     const embedThumbs = parseBooleanParam(req.query.embed_thumbs, true);
 
     const {
@@ -164,9 +173,10 @@ const handleYoutubeCard = async (req, res) => {
       envHandle: process.env.YOUTUBE_HANDLE,
       envChannelId: process.env.YOUTUBE_CHANNEL_ID,
     });
+    resolvedChannelId = channelId;
 
     const playlistId = getUploadsPlaylistId(channelId);
-    let videos = await fetchLatestVideos(apiKey, playlistId, limit);
+    let videos = await fetchLatestVideos(apiKey, playlistId, requestedLimit);
     if (showViews) {
       videos = await attachVideoStats(apiKey, videos);
     }
@@ -196,8 +206,38 @@ const handleYoutubeCard = async (req, res) => {
   } catch (error) {
     console.error("youtube-card error:", error);
     const status = typeof error.status === "number" ? error.status : 500;
-    const message = status === 400 ? error.message : "Internal server error";
-    return res.status(status).json({ error: message });
+    const message =
+      status === 400 || status === 403 || status === 503
+        ? error.message
+        : "Internal server error";
+
+    if (status === 400) {
+      const shouldFallback =
+        typeof error?.message === "string" &&
+        error.message.toLowerCase().includes("api key");
+
+      if (!shouldFallback) {
+        return res.status(status).json({ error: message });
+      }
+    }
+
+    const fallbackVideos = buildFallbackVideos(requestedLimit);
+    const svg = renderYoutubeCardSvg({
+      videos: fallbackVideos,
+      handle: resolvedHandle || handle || username || process.env.YOUTUBE_HANDLE || "",
+      channelId: resolvedChannelId || channelIdParam || "",
+      channelTitle: "Data unavailable",
+      channelAvatarDataUrl: "",
+      theme,
+      showDate,
+      showViews,
+      headerLabel: "Latest YouTube Videos",
+    });
+
+    res.setHeader("Content-Type", "image/svg+xml");
+    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("X-Card-Status", "fallback");
+    return res.status(200).send(svg);
   }
 };
 
@@ -256,6 +296,25 @@ app.get("/", (_, res) => {
 });
 
 export default app;
+
+function buildFallbackVideos(limit) {
+  const count = Math.min(Math.max(limit || 5, 1), 5);
+  const baseDate = new Date();
+
+  return Array.from({ length: count }, (_, index) => {
+    const date = new Date(baseDate);
+    date.setDate(baseDate.getDate() - index * 2);
+    return {
+      videoId: `fallback-${index + 1}`,
+      title: "Video data unavailable",
+      publishedAt: date.toISOString(),
+      views: null,
+      url: "#",
+      thumbnail: null,
+      thumbnailDataUrl: null,
+    };
+  });
+}
 
 function buildThumbnailFallbacks(url) {
   const pathParts = url.pathname.split("/");

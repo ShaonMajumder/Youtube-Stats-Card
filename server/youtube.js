@@ -264,6 +264,8 @@ export function renderYoutubeCardSvg({
       return `
         <g transform="translate(${outerPadding + 18}, ${y})">
           <rect x="0" y="0" width="${cardWidth - 2 * (outerPadding + 18)}" height="${item.contentHeight}" rx="14" fill="${themeTokens.cardAccent}" stroke="${themeTokens.border}" stroke-width="1" opacity="0.95" />
+          <rect x="4" y="4" width="${cardWidth - 2 * (outerPadding + 18) - 8}" height="${item.contentHeight - 8}" rx="12" fill="${themeTokens.glassFill}" opacity="${themeTokens.glassOpacity}" filter="url(#glass-blur)" />
+          <rect x="6" y="6" width="${cardWidth - 2 * (outerPadding + 18) - 12}" height="${item.contentHeight - 12}" rx="11" fill="none" stroke="${themeTokens.glassStroke}" stroke-opacity="${themeTokens.glassStrokeOpacity}" />
           <rect x="8" y="${item.contentHeight - 18}" width="6" height="6" rx="3" fill="${themeTokens.accent}" />
           ${
             thumbUrl
@@ -301,12 +303,12 @@ export function renderYoutubeCardSvg({
     <svg width="${cardWidth}" height="${totalHeight}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
       <defs>
         <linearGradient id="card-bg" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" style="stop-color:#0b0b10;stop-opacity:1" />
-          <stop offset="100%" style="stop-color:#1c1c24;stop-opacity:1" />
+          <stop offset="0%" style="stop-color:${themeTokens.bgStart};stop-opacity:1" />
+          <stop offset="100%" style="stop-color:${themeTokens.bgEnd};stop-opacity:1" />
         </linearGradient>
         <radialGradient id="dust" cx="30%" cy="40%" r="70%">
-          <stop offset="0%" stop-color="#ffffff" stop-opacity="0.08" />
-          <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+          <stop offset="0%" stop-color="${themeTokens.dustColor}" stop-opacity="${themeTokens.dustOpacity}" />
+          <stop offset="100%" stop-color="${themeTokens.dustColor}" stop-opacity="0" />
         </radialGradient>
         <filter id="grain">
           <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch" />
@@ -324,36 +326,38 @@ export function renderYoutubeCardSvg({
       </defs>
 
       <rect width="${cardWidth}" height="${totalHeight}" rx="26" fill="url(#card-bg)" />
-      <rect x="6" y="6" width="${cardWidth - 12}" height="${totalHeight - 12}" rx="22" fill="none" stroke="#2a2a35" stroke-width="2" />
-      <rect x="${outerPadding}" y="${outerPadding}" width="${cardWidth - 2 * outerPadding}" height="${totalHeight - 2 * outerPadding}" rx="20" fill="#121218" stroke="#2b2b33" stroke-width="1.5" />
+      <rect x="6" y="6" width="${cardWidth - 12}" height="${totalHeight - 12}" rx="22" fill="none" stroke="${themeTokens.frameStroke}" stroke-width="2" />
+      <rect x="8" y="8" width="${cardWidth - 16}" height="${totalHeight - 16}" rx="21" fill="${themeTokens.glassFill}" opacity="${themeTokens.glassOpacity}" filter="url(#glass-blur)" />
+      <rect x="${outerPadding}" y="${outerPadding}" width="${cardWidth - 2 * outerPadding}" height="${totalHeight - 2 * outerPadding}" rx="20" fill="${themeTokens.panelFill}" stroke="${themeTokens.panelStroke}" stroke-width="1.5" />
       <rect x="${outerPadding}" y="${outerPadding}" width="${cardWidth - 2 * outerPadding}" height="${totalHeight - 2 * outerPadding}" rx="20" fill="url(#dust)" filter="url(#grain)" />
-      <rect x="${outerPadding + 6}" y="${outerPadding + 6}" width="${cardWidth - 2 * outerPadding - 12}" height="${totalHeight - 2 * outerPadding - 12}" rx="18" fill="#ffffff" opacity="0.05" filter="url(#glass-blur)" />
-      <rect x="${outerPadding + 10}" y="${outerPadding + 10}" width="${cardWidth - 2 * outerPadding - 20}" height="${totalHeight - 2 * outerPadding - 20}" rx="16" fill="none" stroke="#ffffff" stroke-opacity="0.08" />
+      <rect x="${outerPadding + 6}" y="${outerPadding + 6}" width="${cardWidth - 2 * outerPadding - 12}" height="${totalHeight - 2 * outerPadding - 12}" rx="18" fill="${themeTokens.glassFill}" opacity="${themeTokens.glassOpacity}" filter="url(#glass-blur)" />
+      <rect x="${outerPadding + 10}" y="${outerPadding + 10}" width="${cardWidth - 2 * outerPadding - 20}" height="${totalHeight - 2 * outerPadding - 20}" rx="16" fill="none" stroke="${themeTokens.glassStroke}" stroke-opacity="${themeTokens.glassStrokeOpacity}" />
 
-      <rect x="${outerPadding}" y="${outerPadding}" width="${cardWidth - 2 * outerPadding}" height="${headerBarHeight}" rx="14" fill="#1b1b24" stroke="#2f2f3a" stroke-width="1" />
+      <rect x="${outerPadding}" y="${outerPadding}" width="${cardWidth - 2 * outerPadding}" height="${headerBarHeight}" rx="14" fill="${themeTokens.headerFill}" stroke="${themeTokens.headerStroke}" stroke-width="1" />
+      <rect x="${outerPadding + 4}" y="${outerPadding + 4}" width="${cardWidth - 2 * outerPadding - 8}" height="${headerBarHeight - 8}" rx="12" fill="${themeTokens.glassFill}" opacity="${themeTokens.glassOpacity}" filter="url(#glass-blur)" />
       <g transform="translate(${cardWidth - outerPadding - 140}, ${outerPadding + 8})">
-        <rect x="0" y="0" rx="12" ry="12" width="40" height="32" fill="#e22c2c" />
-        <polygon points="15,9 15,23 27,16" fill="#ffffff" />
-        <text x="50" y="23" font-family="'Space Grotesk', 'Segoe UI', sans-serif" font-size="18" font-weight="700" fill="#ffffff">YouTube</text>
+        <rect x="0" y="0" rx="12" ry="12" width="40" height="32" fill="${themeTokens.youtubeBadge}" />
+        <polygon points="15,9 15,23 27,16" fill="${themeTokens.youtubeIcon}" />
+        <text x="50" y="23" font-family="'Space Grotesk', 'Segoe UI', sans-serif" font-size="18" font-weight="700" fill="${themeTokens.youtubeText}">YouTube</text>
       </g>
 
       ${headerAvatar}
-      <text x="${outerPadding + 90}" y="${headerBarHeight + 38}" font-family="'Space Grotesk', 'Segoe UI', sans-serif" font-size="20" font-weight="700" fill="#f2f2f4">
+      <text x="${outerPadding + 90}" y="${headerBarHeight + 38}" font-family="'Space Grotesk', 'Segoe UI', sans-serif" font-size="20" font-weight="700" fill="${themeTokens.text}">
         ${escapeXml(headerText)}
       </text>
-      <text x="${outerPadding + 90}" y="${headerBarHeight + 58}" font-family="'Inter', 'Segoe UI', sans-serif" font-size="13" font-weight="600" fill="#b7b7bf">
+      <text x="${outerPadding + 90}" y="${headerBarHeight + 58}" font-family="'Inter', 'Segoe UI', sans-serif" font-size="13" font-weight="600" fill="${themeTokens.muted}">
         ${escapeXml(subtitle)}
       </text>
-      <line x1="${outerPadding + 90}" y1="${headerBarHeight + 70}" x2="${cardWidth - outerPadding - 30}" y2="${headerBarHeight + 70}" stroke="#2f2f3a" stroke-width="1" />
+      <line x1="${outerPadding + 90}" y1="${headerBarHeight + 70}" x2="${cardWidth - outerPadding - 30}" y2="${headerBarHeight + 70}" stroke="${themeTokens.divider}" stroke-width="1" />
 
       ${svgItems}
 
       <g transform="translate(0, ${totalHeight - 22})">
-        <line x1="${outerPadding + 40}" y1="0" x2="${cardWidth / 2 - 70}" y2="0" stroke="#2f2f3a" stroke-width="1" />
-        <text x="${cardWidth / 2}" y="4" font-family="'Inter', 'Segoe UI', sans-serif" font-size="11" fill="#9d9daa" text-anchor="middle">
+        <line x1="${outerPadding + 40}" y1="0" x2="${cardWidth / 2 - 70}" y2="0" stroke="${themeTokens.divider}" stroke-width="1" />
+        <text x="${cardWidth / 2}" y="4" font-family="'Inter', 'Segoe UI', sans-serif" font-size="11" fill="${themeTokens.footerText}" text-anchor="middle">
           YouTube Stats Card
         </text>
-        <line x1="${cardWidth / 2 + 70}" y1="0" x2="${cardWidth - outerPadding - 40}" y2="0" stroke="#2f2f3a" stroke-width="1" />
+        <line x1="${cardWidth / 2 + 70}" y1="0" x2="${cardWidth - outerPadding - 40}" y2="0" stroke="${themeTokens.divider}" stroke-width="1" />
       </g>
     </svg>
   `;
@@ -386,14 +390,32 @@ function getThemeTokens(theme) {
       base: "#f6f6f6",
       grain: "#d9d9de",
       card: "#ffffff",
-      cardAccent: "#f2f2f6",
-      border: "#e0e0e6",
+      cardAccent: "#f7f7fb",
+      border: "#d9dde8",
       rail: "#ff3d3d",
       accent: "#ff3d3d",
       accentSoft: "#ff8b8b",
-      text: "#141414",
-      muted: "#5f606a",
-      link: "#141414",
+      text: "#111827",
+      muted: "#5b6270",
+      link: "#111827",
+      bgStart: "#f8f9fc",
+      bgEnd: "#eceff6",
+      frameStroke: "#c7cdd8",
+      panelFill: "#ffffff",
+      panelStroke: "#d9dde8",
+      headerFill: "#f3f4f9",
+      headerStroke: "#d9dde8",
+      divider: "#d0d5e2",
+      footerText: "#6b7280",
+      dustColor: "#000000",
+      dustOpacity: 0.04,
+      glassFill: "#ffffff",
+      glassOpacity: 0.22,
+      glassStroke: "#ffffff",
+      glassStrokeOpacity: 0.3,
+      youtubeBadge: "#e11d2e",
+      youtubeText: "#1f2937",
+      youtubeIcon: "#ffffff",
     };
   }
 
@@ -409,6 +431,24 @@ function getThemeTokens(theme) {
     text: "#ffffff",
     muted: "#b4b4c2",
     link: "#ffffff",
+    bgStart: "#0b0b10",
+    bgEnd: "#1c1c24",
+    frameStroke: "#2a2a35",
+    panelFill: "#121218",
+    panelStroke: "#2b2b33",
+    headerFill: "#1b1b24",
+    headerStroke: "#2f2f3a",
+    divider: "#2f2f3a",
+    footerText: "#9d9daa",
+    dustColor: "#ffffff",
+    dustOpacity: 0.08,
+    glassFill: "#ffffff",
+    glassOpacity: 0.08,
+    glassStroke: "#ffffff",
+    glassStrokeOpacity: 0.12,
+    youtubeBadge: "#e22c2c",
+    youtubeText: "#ffffff",
+    youtubeIcon: "#ffffff",
   };
 }
 

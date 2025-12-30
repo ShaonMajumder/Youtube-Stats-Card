@@ -34,6 +34,11 @@ const THUMBNAIL_HEADERS = {
 };
 
 const DEBUG_LOG = String(process.env.YOUTUBE_DEBUG_LOG || "").toLowerCase() === "true";
+const RESEND_API_KEY = (process.env.RESEND_API_KEY || "").trim();
+const ALERT_FROM = (process.env.ALERT_FROM || "").trim();
+const ALERT_TO = (process.env.ALERT_TO || "").trim();
+const ALERT_THROTTLE_MS = 60 * 60 * 1000;
+let lastAlertAt = 0;
 
 const app = express();
 
@@ -211,6 +216,16 @@ const handleYoutubeCard = async (req, res) => {
         ? error.message
         : "Internal server error";
 
+    if (shouldSendApiKeyAlert(error)) {
+      await sendApiKeyAlert({
+        status,
+        message,
+        handle: handle || username || process.env.YOUTUBE_HANDLE || "",
+        channelId: resolvedChannelId || channelIdParam || "",
+        theme,
+      });
+    }
+
     if (status === 400) {
       const shouldFallback =
         typeof error?.message === "string" &&
@@ -334,6 +349,65 @@ function buildThumbnailFallbacks(url) {
 function buildThumbnailUrlFromVideoId(videoId) {
   if (!videoId) return "";
   return `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/default.jpg`;
+}
+
+function shouldSendApiKeyAlert(error) {
+  const message = typeof error?.message === "string" ? error.message : "";
+  if (!message) return false;
+  const isApiKeyIssue = message.toLowerCase().includes("api key expired");
+  if (!isApiKeyIssue) return false;
+  if (!RESEND_API_KEY || !ALERT_FROM || !ALERT_TO) return false;
+  const now = Date.now();
+  if (now - lastAlertAt < ALERT_THROTTLE_MS) return false;
+  lastAlertAt = now;
+  return true;
+}
+
+async function sendApiKeyAlert({ status, message, handle, channelId, theme }) {
+  const payload = {
+    from: ALERT_FROM,
+    to: ALERT_TO,
+    subject: "YouTube Stats Card: API key expired",
+    html: `
+      <h2>YouTube Stats Card alert</h2>
+      <p>The YouTube Data API key expired while generating a card.</p>
+      <ul>
+        <li>Status: ${status || "unknown"}</li>
+        <li>Message: ${escapeHtml(message || "unknown")}</li>
+        <li>Handle: ${escapeHtml(handle || "n/a")}</li>
+        <li>Channel ID: ${escapeHtml(channelId || "n/a")}</li>
+        <li>Theme: ${escapeHtml(theme || "n/a")}</li>
+      </ul>
+      <p>Update the API key in Netlify environment variables.</p>
+    `,
+  };
+
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${RESEND_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const body = await response.text();
+      console.error("alert email failed:", response.status, body);
+    }
+  } catch (error) {
+    console.error("alert email error:", error);
+  }
+}
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 async function attachInlineThumbnails(videos) {

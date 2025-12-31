@@ -11,3 +11,7 @@
   to = "/.netlify/functions/youtube-card/api/:splat"
   status = 200
   force = true
+
+[[edge_functions]]
+  function = "rate-limit"
+  path = "/api/*"

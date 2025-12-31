@@ -3,7 +3,7 @@
 Generate a sharp, always-up-to-date SVG card that showcases the latest YouTube uploads for any handle. The project pairs a bold React/Tailwind UI with a lightweight Express API (deployable as a Netlify Function) that calls the YouTube Data API and renders the SVG server-side.
 
 **Live demo:** [https://youtube-stats-card.robist.com/](https://youtube-stats-card.robist.com/)
-![Latest YouTube Videos](https://youtube-stats-card.robist.com/api/youtube-card?handle=@shaonmajumder)
+![Latest YouTube Videos](screenshots/youtube-card.svg)
 
 ---
 
@@ -15,7 +15,9 @@ Generate a sharp, always-up-to-date SVG card that showcases the latest YouTube u
 - **Embed options** – Markdown, HTML, and direct URL snippets in the UI.
 - **Fast & cacheable** – SVG responses are CDN-friendly and lightweight.
 
----
+## Demo
+
+## ![Demo](screenshots/screencapture-youtube-stats-card-robist-2025-12-31-17_52_06.png)
 
 ## Reliability & Alerting (Built-in)
 

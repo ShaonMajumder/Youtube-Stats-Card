@@ -1,7 +1,6 @@
 import express from "express";
 import {
   attachVideoStats,
-  buildLatestJson,
   fetchLatestVideos,
   getUploadsPlaylistId,
   parseBooleanParam,
@@ -38,7 +37,30 @@ const RESEND_API_KEY = (process.env.RESEND_API_KEY || "").trim();
 const ALERT_FROM = (process.env.ALERT_FROM || "").trim();
 const ALERT_TO = (process.env.ALERT_TO || "").trim();
 const ALERT_THROTTLE_MS = 60 * 60 * 1000;
+const ERROR_WINDOW_MS = 60 * 60 * 1000;
+const ERROR_FLOOD_THRESHOLD = 50;
+const RECOVERY_MIN_FAILURE_MS = 10 * 60 * 1000;
 let lastAlertAt = 0;
+const lastAlertByReason = {};
+let errorWindowStart = 0;
+let errorCount = 0;
+let inErrorState = false;
+let failureStartAt = 0;
+let hadAlertDuringFailure = false;
+let bootCheckPending = true;
+let lastContext = { handle: "", channelId: "", theme: "dark" };
+const IS_NETLIFY = Boolean(
+  process.env.NETLIFY ||
+  process.env.NETLIFY_URL ||
+  process.env.DEPLOY_PRIME_URL
+);
+const ENVIRONMENT = String(
+  process.env.ENVIRONMENT ||
+  process.env.environment ||
+  process.env.enviroment || // keep legacy typo
+  ""
+).trim().toLowerCase();
+const IS_LOCAL = ENVIRONMENT === "local" || !IS_NETLIFY;
 
 const app = express();
 
@@ -159,6 +181,9 @@ const handleYoutubeCard = async (req, res) => {
       : typeof req.query.cacheBust === "string"
         ? req.query.cacheBust.trim()
         : "";
+  const requestInfo = getRequestInfo(req);
+  const bootCheckForThisRequest = bootCheckPending;
+  bootCheckPending = false;
 
   try {
     requestedLimit = parseLimitParam(req.query.limit || process.env.LIMIT);
@@ -207,6 +232,12 @@ const handleYoutubeCard = async (req, res) => {
 
     res.setHeader("Content-Type", "image/svg+xml");
     res.setHeader("Cache-Control", "public, max-age=3600");
+    lastContext = {
+      handle: resolvedHandle || process.env.YOUTUBE_HANDLE || "",
+      channelId,
+      theme,
+    };
+    await onRequestSuccess({ requestInfo, context: lastContext });
     return res.status(200).send(svg);
   } catch (error) {
     console.error("youtube-card error:", error);
@@ -216,15 +247,16 @@ const handleYoutubeCard = async (req, res) => {
         ? error.message
         : "Internal server error";
 
-    if (shouldSendApiKeyAlert(error)) {
-      await sendApiKeyAlert({
-        status,
-        message,
-        handle: handle || username || process.env.YOUTUBE_HANDLE || "",
-        channelId: resolvedChannelId || channelIdParam || "",
-        theme,
-      });
-    }
+    await handleAlertingOnError({
+      error,
+      status,
+      message,
+      handle: handle || username || process.env.YOUTUBE_HANDLE || "",
+      channelId: resolvedChannelId || channelIdParam || "",
+      theme,
+      requestInfo,
+      bootCheckForThisRequest,
+    });
 
     if (status === 400) {
       const shouldFallback =
@@ -257,50 +289,6 @@ const handleYoutubeCard = async (req, res) => {
 };
 
 app.get("/api/youtube-card", handleYoutubeCard);
-
-app.get("/api/youtube-json", async (req, res) => {
-  const apiKey = (process.env.YOUTUBE_API_KEY || "").trim();
-  if (!apiKey) {
-    return res.status(500).json({ error: "Missing YOUTUBE_API_KEY" });
-  }
-
-  const handle = typeof req.query.handle === "string" ? req.query.handle.trim() : "";
-  const username = typeof req.query.username === "string" ? req.query.username.trim() : "";
-  const channelIdParam =
-    typeof req.query.channel_id === "string"
-      ? req.query.channel_id.trim()
-      : typeof req.query.channelId === "string"
-        ? req.query.channelId.trim()
-        : "";
-
-  try {
-    const limit = parseLimitParam(req.query.limit || process.env.LIMIT);
-
-    const { channelId, handle: resolvedHandle } = await resolveChannelId({
-      apiKey,
-      handleParam: handle || username,
-      channelIdParam,
-      envHandle: process.env.YOUTUBE_HANDLE,
-      envChannelId: process.env.YOUTUBE_CHANNEL_ID,
-    });
-
-    const playlistId = getUploadsPlaylistId(channelId);
-    const videos = await fetchLatestVideos(apiKey, playlistId, limit);
-    const json = buildLatestJson({
-      channelId,
-      handle: resolvedHandle || process.env.YOUTUBE_HANDLE || "",
-      videos,
-    });
-
-    res.setHeader("Cache-Control", "public, max-age=3600");
-    return res.status(200).json(json);
-  } catch (error) {
-    console.error("youtube-json error:", error);
-    const status = typeof error.status === "number" ? error.status : 500;
-    const message = status === 400 ? error.message : "Internal server error";
-    return res.status(status).json({ error: message });
-  }
-});
 
 app.get("/", (_, res) => {
   res.json({
@@ -351,38 +339,119 @@ function buildThumbnailUrlFromVideoId(videoId) {
   return `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/default.jpg`;
 }
 
-function shouldSendApiKeyAlert(error) {
-  const message = typeof error?.message === "string" ? error.message : "";
-  if (!message) return false;
-  const isApiKeyIssue = message.toLowerCase().includes("api key expired");
-  if (!isApiKeyIssue) return false;
-  if (!RESEND_API_KEY || !ALERT_FROM || !ALERT_TO) return false;
-  const now = Date.now();
-  if (now - lastAlertAt < ALERT_THROTTLE_MS) return false;
-  lastAlertAt = now;
+function shouldAllowAlerts() {
+  if (IS_LOCAL && !DEBUG_LOG) {
+    return false;
+  }
+  if (!IS_NETLIFY && !IS_LOCAL && !DEBUG_LOG) {
+    return false;
+  }
+  if (!RESEND_API_KEY || !ALERT_FROM || !ALERT_TO) {
+    if (DEBUG_LOG) {
+      console.log("[alert] missing resend config");
+    }
+    return false;
+  }
   return true;
 }
 
-async function sendApiKeyAlert({ status, message, handle, channelId, theme }) {
+async function handleAlertingOnError({
+  error,
+  status,
+  message,
+  handle,
+  channelId,
+  theme,
+  requestInfo,
+  bootCheckForThisRequest,
+}) {
+  const now = Date.now();
+  onRequestFailure(now);
+  const normalized = typeof message === "string" ? message.toLowerCase() : "";
+
+  if (bootCheckForThisRequest && isBootFailure(error, normalized)) {
+    await sendAlert({
+      reason: "BOOT_FAIL",
+      subject: "BOOT FAIL: handle resolution failed",
+      status,
+      message,
+      handle,
+      channelId,
+      theme,
+      requestInfo,
+    });
+  }  
+
+  if (errorCount >= ERROR_FLOOD_THRESHOLD ) {
+    await sendAlert({
+      reason: "ERROR_FLOOD",
+      subject: `ERROR FLOOD: ${errorCount} errors in the last hour`,
+      status,
+      message: `Error volume reached ${ERROR_FLOOD_THRESHOLD}/hour threshold.`,
+      handle,
+      channelId,
+      theme,
+      requestInfo,
+    });
+    resetErrorWindow(now);
+  }
+
+  if (isApiKeyIssue(normalized)) {
+    await sendAlert({
+      reason: "API_KEY",
+      subject: "YouTube Stats Card: API key error",
+      status,
+      message,
+      handle,
+      channelId,
+      theme,
+      requestInfo,
+    });
+  }
+}
+
+async function sendAlert({
+  reason,
+  subject,
+  status,
+  message,
+  handle,
+  channelId,
+  theme,
+  requestInfo
+}) {
+  if (!shouldAllowAlerts()) {
+    return;
+  }
+  
   const payload = {
     from: ALERT_FROM,
     to: ALERT_TO,
-    subject: "YouTube Stats Card: API key expired",
+    subject,
     html: `
       <h2>YouTube Stats Card alert</h2>
-      <p>The YouTube Data API key expired while generating a card.</p>
+      <p>${escapeHtml(subject)}</p>
       <ul>
         <li>Status: ${status || "unknown"}</li>
         <li>Message: ${escapeHtml(message || "unknown")}</li>
         <li>Handle: ${escapeHtml(handle || "n/a")}</li>
         <li>Channel ID: ${escapeHtml(channelId || "n/a")}</li>
         <li>Theme: ${escapeHtml(theme || "n/a")}</li>
+        <li>Client IP: ${escapeHtml(requestInfo?.ip || "n/a")}</li>
+        <li>User Agent: ${escapeHtml(requestInfo?.userAgent || "n/a")}</li>
+        <li>Referer: ${escapeHtml(requestInfo?.referer || "n/a")}</li>
+        <li>Host: ${escapeHtml(requestInfo?.host || "n/a")}</li>
+        <li>Path: ${escapeHtml(requestInfo?.path || "n/a")}</li>
+        <li>Query: ${escapeHtml(requestInfo?.query || "n/a")}</li>
       </ul>
-      <p>Update the API key in Netlify environment variables.</p>
+      <p>Update the API key in Netlify environment variables if applicable.</p>
     `,
   };
 
   try {
+    if (DEBUG_LOG) {
+      console.log("[alert] sending resend email", reason);
+    }
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
@@ -392,13 +461,94 @@ async function sendApiKeyAlert({ status, message, handle, channelId, theme }) {
       body: JSON.stringify(payload),
     });
 
+    if (DEBUG_LOG) {
+      console.log("[alert] resend response:", response.status, await response.text());
+    }
+
     if (!response.ok) {
       const body = await response.text();
       console.error("alert email failed:", response.status, body);
+      return;
     }
+    lastAlertAt = Date.now();
+    lastAlertByReason[reason] = lastAlertAt;
+    hadAlertDuringFailure = true;
   } catch (error) {
     console.error("alert email error:", error);
   }
+}
+
+async function sendRecoveryAlert({ context, requestInfo, failureDurationMs }) {
+  await sendAlert({
+    reason: "RECOVERY",
+    subject: "RECOVERY: YouTube card errors cleared",
+    status: 200,
+    message: `Recovered after ${(failureDurationMs / 60000).toFixed(1)} minutes.`,
+    handle: context?.handle || "",
+    channelId: context?.channelId || "",
+    theme: context?.theme || "dark",
+    requestInfo,
+  });
+}
+
+function isApiKeyIssue(message) {
+  return (
+    message.includes("api key expired") ||
+    message.includes("api key invalid") ||
+    message.includes("api key")
+  );
+}
+
+function isHandleResolutionError(error, normalizedMessage) {
+  const status = typeof error?.status === "number" ? error.status : 0;
+  return (
+    normalizedMessage.includes("handle") ||
+    normalizedMessage.includes("channel not found") ||
+    normalizedMessage.includes("search failed") ||
+    (status === 400 && normalizedMessage.includes("channel"))
+  );
+}
+
+function isBootFailure(error, normalizedMessage) {
+  const status = typeof error?.status === "number" ? error.status : 0;
+  if (isHandleResolutionError(error, normalizedMessage)) return true;
+  if (isApiKeyIssue(normalizedMessage)) return true;
+  return status >= 400;
+}
+
+async function onRequestSuccess({ requestInfo, context }) {
+  const now = Date.now();
+  if (inErrorState) {
+    const failureDurationMs = failureStartAt ? now - failureStartAt : 0;
+    if (hadAlertDuringFailure && failureDurationMs >= RECOVERY_MIN_FAILURE_MS) {
+      console.log("[alert] recovery after", Math.round(failureDurationMs / 60000), "min");
+      await sendRecoveryAlert({ context, requestInfo, failureDurationMs });
+    }
+    inErrorState = false;
+    failureStartAt = 0;
+    hadAlertDuringFailure = false;
+  }
+  bootCheckPending = true;
+}
+
+function onRequestFailure (now) {
+  if (!inErrorState) {
+    inErrorState = true;
+    failureStartAt = now;
+  }
+  updateErrorWindow(now);
+}
+
+function updateErrorWindow(now) {
+  if (!errorWindowStart || now - errorWindowStart > ERROR_WINDOW_MS) {
+    resetErrorWindow(now);
+  }
+  errorCount += 1;
+}
+
+function resetErrorWindow(now) {
+  errorWindowStart = now;
+  errorCount = 0;
 }
 
 function escapeHtml(value) {
@@ -408,6 +558,25 @@ function escapeHtml(value) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+function getRequestInfo(req) {
+  if (!req) return {};
+  const forwardedFor = req.headers?.["x-forwarded-for"];
+  const ip = Array.isArray(forwardedFor)
+    ? forwardedFor[0]
+    : typeof forwardedFor === "string"
+      ? forwardedFor.split(",")[0].trim()
+      : req.ip || req.socket?.remoteAddress || "";
+
+  return {
+    ip,
+    userAgent: req.headers?.["user-agent"] || "",
+    referer: req.headers?.referer || req.headers?.referrer || "",
+    host: req.headers?.host || "",
+    path: req.originalUrl || req.url || "",
+    query: req.originalUrl && req.originalUrl.includes("?") ? req.originalUrl.split("?")[1] : "",
+  };
 }
 
 async function attachInlineThumbnails(videos) {

@@ -1,0 +1,216 @@
+# Alerting & Throttling Behavior Specification
+
+This document defines the **observable behavior** of the alerting system used in the **YouTube‑Stats‑Card** project. It is intentionally written as a **behavioral contract**, independent of implementation details, function names, or programming language.
+
+---
+
+## 1. Preconditions for Any Alert
+
+An alert is eligible to be sent **only if all of the following are true**:
+
+- The runtime environment allows outbound alerts (not silently disabled)
+- Required alert configuration exists:
+
+  - Email API key
+  - Sender address
+  - Recipient address
+
+If any prerequisite is missing, **no alert is sent** and the system continues silently.
+
+---
+
+## 2. Alert Reasons (Conceptual)
+
+The system recognizes distinct **alert reasons**. Each reason is tracked independently:
+
+- **BOOT_FAIL** — failure on the very first request after process startup
+- **API_KEY** — invalid, expired, or rejected API key
+- **ERROR_FLOOD** — high error volume within a defined time window
+- **RECOVERY** — successful recovery after a sustained failure
+
+Each reason maintains **independent deduplication state**.
+
+---
+
+## 3. Error State Lifecycle
+
+The system maintains a global **error state**:
+
+- Entered on the **first failed request**
+- Timestamp of the first failure is recorded
+- Remains active until a successful request occurs
+
+While in an error state:
+
+- Errors are counted for flood detection
+- Alerts may be triggered
+- Recovery detection becomes eligible
+
+---
+
+## 4. Boot‑Time Failure Detection
+
+A **boot‑time failure** is defined as an error occurring on the **first request after process startup**.
+
+If that request fails due to:
+
+- API key errors
+- Channel or handle resolution failures
+- Any HTTP error ≥ 400
+
+Then:
+
+- A **BOOT_FAIL alert** is sent immediately
+- This check runs **only once per boot**
+
+Boot‑time alerts bypass error‑count logic.
+
+---
+
+## 5. Error Window & Flood Detection
+
+The system tracks failures inside a **rolling error window**.
+
+### Error Window
+
+- Window duration: **1 hour**
+- The window starts on the **first error**
+- Each subsequent error increments an internal counter
+- If the window expires, both the timestamp and counter reset
+
+### Flood Threshold
+
+- An **ERROR_FLOOD alert is triggered only when**:
+
+  - **More than 50 errors occur within the same 1‑hour window**
+
+- When triggered:
+
+  - The error window is **immediately reset**
+  - Counting restarts from zero
+
+This guarantees:
+
+- **No flood alert unless the threshold is exceeded within one hour**
+- **Only one flood alert per window**
+- Sustained outages do not produce alert spam
+
+> Important: There is **no global 1‑hour flood timer**. The flood alert depends strictly on _error volume within the rolling window_, not on time alone.
+
+---
+
+## 6. API Key Error Behavior
+
+API key errors are treated as **persistent configuration failures**.
+
+Behavior:
+
+- Each request that fails due to an API key issue attempts to raise an alert
+- Alerts are **deduplicated by reason**
+- Repeated API key failures do **not** continuously send emails
+
+Result:
+
+- You receive **at most one API key alert per deduplication window**
+- Continuous misconfiguration does not cause alert storms
+
+---
+
+## 7. Alert Deduplication (Per Reason)
+
+Each alert reason maintains its own **last‑sent timestamp**.
+
+Rules:
+
+- If an alert of the same reason was already sent recently:
+
+  - The new alert is **suppressed**
+
+- Different reasons do **not** suppress each other
+
+Example:
+
+- A BOOT_FAIL alert does not block an API_KEY alert
+- An API_KEY alert does not block an ERROR_FLOOD alert
+
+---
+
+## 8. Global Throttling
+
+In addition to per‑reason deduplication, a **global throttle** applies:
+
+- After _any_ alert is successfully sent, the system enters a cooldown period
+- During this period:
+
+  - Additional alerts may be suppressed
+
+### Exception
+
+- Critical alerts such as **ERROR_FLOOD** may explicitly bypass the global throttle
+
+The purpose of global throttling is to:
+
+- Protect email quotas
+- Prevent back‑to‑back alerts during cascading failures
+
+---
+
+## 9. Recovery Detection
+
+A **recovery** is defined as:
+
+- A successful request
+- Occurring after an active error state
+- Where the error state lasted longer than a minimum duration (e.g. 10 minutes)
+
+### Recovery Alert
+
+A **RECOVERY alert** is sent only if:
+
+1. The system was previously in an error state
+2. At least one alert was sent during that failure period
+3. The failure duration exceeded the minimum threshold
+
+When sent:
+
+- The alert includes the approximate downtime duration
+- Error state tracking is cleared
+
+Short or silent failures do **not** produce recovery alerts.
+
+---
+
+## 10. State Reset Rules
+
+State transitions follow these rules:
+
+- Successful request:
+
+  - Clears error state
+  - Re‑enables boot‑time detection
+
+- Flood alert sent:
+
+  - Resets the error window
+
+- Recovery alert sent:
+
+  - Clears failure tracking
+
+No state is persisted beyond the runtime lifecycle.
+
+---
+
+## 11. Design Guarantees
+
+This alerting behavior guarantees:
+
+- No alert storms during sustained outages
+- Immediate visibility for startup failures
+- Single notification for persistent API key issues
+- Clear recovery signals after meaningful downtime
+- Safe operation under traffic spikes
+
+---
+
+This behavior can be implemented in any language, framework, or infrastructure while preserving identical alert semantics.

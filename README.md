@@ -2,112 +2,85 @@
 
 Generate a sharp, always-up-to-date SVG card that showcases the latest YouTube uploads for any handle. The project pairs a bold React/Tailwind UI with a lightweight Express API (deployable as a Netlify Function) that calls the YouTube Data API and renders the SVG server-side.
 
-**Live demo:** https://youtube-stats-card.netlify.app/  
+**Live demo:** [https://youtube-stats-card.netlify.app/](https://youtube-stats-card.netlify.app/)
 ![Latest YouTube Videos](https://youtube-stats-card.netlify.app/api/youtube-card?handle=@shaonmajumder)
+
+---
 
 ## Features
 
-- **Latest uploads** - Pulls the most recent videos, including thumbnails.
-- **Customizable output** - Control limit, theme, publish date, and view count.
-- **Serverless-ready** - One Express app runs locally or inside Netlify Functions.
-- **Embed options** - Markdown, HTML, and direct URL snippets in the UI.
+- **Latest uploads** – Pulls the most recent videos, including thumbnails.
+- **Customizable output** – Control limit, theme, publish date, and view count.
+- **Serverless-ready** – One Express app runs locally or inside Netlify Functions.
+- **Embed options** – Markdown, HTML, and direct URL snippets in the UI.
+- **Fast & cacheable** – SVG responses are CDN-friendly and lightweight.
 
-## Project Structure
+---
 
-```
-Youtube-Stats-Card/
-|-- src/
-|   |-- components/
-|   `-- pages/Index.tsx
-|-- server/
-|   |-- app.js
-|   |-- generate.js
-|   `-- youtube.js
-|-- netlify/
-|   `-- functions/
-|       `-- youtube-card.js
-|-- netlify.toml
-|-- package.json
-|-- README.md
-|-- latest.json
-`-- latest.svg
-```
+## Reliability & Alerting (Built-in)
 
-## Getting Started
+This project includes a **production-grade alerting model** designed specifically for serverless and edge-style deployments.
 
-```bash
-cd Youtube-Stats-Card
-npm install
-```
+**What makes it special:**
 
-### Environment
+- **Noise-free alerts** – avoids email spam during outages or traffic spikes
+- **Smart error flood detection** – sends a single alert only when error volume crosses a threshold (e.g. more than 50 errors within 1 hour)
+- **Boot-time failure awareness** – detects and alerts on startup misconfiguration immediately
+- **API key protection** – notifies once per incident if the YouTube API key is invalid or expired
+- **Recovery signals** – sends a recovery notification only after meaningful downtime
+- **Quota-safe by design** – preserves email and third-party API limits automatically
 
-Create a `.env` based on `.env.example`:
+All alerting behavior is **self-throttled, deduplicated, and failure-aware**, making the service safe to run continuously without manual supervision.
 
-```
-YOUTUBE_API_KEY=your_key_here
-YOUTUBE_HANDLE=@shaonmajumder
-VITE_API_BASE_URL=
-LIMIT=5
-THEME=dark
-SHOW_DATE=true
-SHOW_VIEWS=true
+---
+
+## Usage
+
+### SVG Card
+
+```md
+![Latest YouTube Videos](https://youtube-stats-card.netlify.app/api/youtube-card?handle=@yourhandle)
 ```
 
-### Local Development
+### Markdown embedding
 
-```bash
-npm run dev
+```
+![Latest YouTube Videos](https://youtube-stats-card.netlify.app/api/youtube-card?handle=@shaonmajumder)
 ```
 
-### Generate SVG/JSON locally
+### Optional Query Params
 
-```bash
-npm run generate
-```
+- `limit` – number of videos
+- `theme` – `light` or `dark`
+- `show_date` – show/hide publish date
+- `show_views` – show/hide view count
 
-## API Usage
+---
 
-### `GET /api/youtube-card`
+## Deployment
 
-Returns an SVG card.
+The API is designed to run:
 
-Query params:
-| Param | Type | Required | Description |
-|-------------|--------|----------|-------------|
-| `handle` | string | Yes | YouTube channel handle (use `@` or omit it). |
-| `channel_id` | string | No | Direct channel ID (`UC...`) if you prefer not to use a handle. |
-| `limit` | number | No | Number of videos (default `5`, max `10`). |
-| `theme` | string | No | `light` or `dark`. |
-| `show_date` | bool | No | Toggle publish date (`true`/`false`). |
-| `show_views` | bool | No | Toggle view counts (`true`/`false`). |
+- Locally via Express
+- As a Netlify Function
+- In any Node.js serverless environment
 
-Responses:
+No code changes required.
 
-- `200 OK` - SVG card.
-- `400 Bad Request` - `{ error: "Handle or channelId is required" }`
-- `500 Internal Server Error` - `{ error: "Missing YOUTUBE_API_KEY" }`
-
-### `GET /api/youtube-json`
-
-Returns the latest video data in JSON.
-
-## Deployment Notes
-
-Because `netlify.toml` redirects `/api/*` to `/.netlify/functions/youtube-card`, the front-end can call `/api/youtube-card` locally and on Netlify without extra configuration. If deploying elsewhere, set `VITE_API_BASE_URL` accordingly.
+---
 
 ## Author & Credits
 
-**Built and maintained by [Shaon Majumder](https://shaonresume.netlify.app)**  
-Senior Software Engineer - AI & Scalability
+**Built and maintained by [Shaon Majumder](https://shaonresume.netlify.app)**
+Senior Software Engineer – AI & Scalability
 
 **Connect**
 
-- Portfolio: https://shaonresume.netlify.app
-- GitHub: https://github.com/ShaonMajumder
-- LinkedIn: https://www.linkedin.com/in/shaonmajumder
-- Medium: https://medium.com/@shaonmajumder
-- Resume: https://shaonresume.netlify.app/resume.html
+- Portfolio: [https://shaonresume.netlify.app](https://shaonresume.netlify.app)
+- GitHub: [https://github.com/ShaonMajumder](https://github.com/ShaonMajumder)
+- LinkedIn: [https://www.linkedin.com/in/shaonmajumder](https://www.linkedin.com/in/shaonmajumder)
+- Medium: [https://medium.com/@shaonmajumder](https://medium.com/@shaonmajumder)
+- Resume: [https://shaonresume.netlify.app/resume.html](https://shaonresume.netlify.app/resume.html)
 
 ---
 

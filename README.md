@@ -2,8 +2,8 @@
 
 Generate a sharp, always-up-to-date SVG card that showcases the latest YouTube uploads for any handle. The project pairs a bold React/Tailwind UI with a lightweight Express API (deployable as a Netlify Function) that calls the YouTube Data API and renders the SVG server-side.
 
-**Live demo:** [https://youtube-stats-card.netlify.app/](https://youtube-stats-card.netlify.app/)
-![Latest YouTube Videos](https://youtube-stats-card.netlify.app/api/youtube-card?handle=@shaonmajumder)
+**Live demo:** [https://youtube-stats-card.robist.com/](https://youtube-stats-card.robist.com/)
+![Latest YouTube Videos](https://youtube-stats-card.robist.com/api/youtube-card?handle=@shaonmajumder)
 
 ---
 
@@ -39,13 +39,13 @@ All alerting behavior is **self-throttled, deduplicated, and failure-aware**, ma
 ### SVG Card
 
 ```md
-![Latest YouTube Videos](https://youtube-stats-card.netlify.app/api/youtube-card?handle=@yourhandle)
+![Latest YouTube Videos](https://youtube-stats-card.robist.com/api/youtube-card?handle=@yourhandle)
 ```
 
 ### Markdown embedding
 
 ```
-![Latest YouTube Videos](https://youtube-stats-card.netlify.app/api/youtube-card?handle=@shaonmajumder)
+![Latest YouTube Videos](https://youtube-stats-card.robist.com/api/youtube-card?handle=@shaonmajumder)
 ```
 
 ### Optional Query Params
@@ -71,16 +71,16 @@ No code changes required.
 
 ## Author & Credits
 
-**Built and maintained by [Shaon Majumder](https://shaonresume.netlify.app)**
+**Built and maintained by [Shaon Majumder](https://shaonresume.robist.com)**
 Senior Software Engineer – AI & Scalability
 
 **Connect**
 
-- Portfolio: [https://shaonresume.netlify.app](https://shaonresume.netlify.app)
+- Portfolio: [https://shaonresume.robist.com](https://shaonresume.robist.com)
 - GitHub: [https://github.com/ShaonMajumder](https://github.com/ShaonMajumder)
 - LinkedIn: [https://www.linkedin.com/in/shaonmajumder](https://www.linkedin.com/in/shaonmajumder)
 - Medium: [https://medium.com/@shaonmajumder](https://medium.com/@shaonmajumder)
-- Resume: [https://shaonresume.netlify.app/resume.html](https://shaonresume.netlify.app/resume.html)
+- Resume: [https://shaonresume.robist.com/resume.html](https://shaonresume.robist.com/resume.html)
 
 ---
 

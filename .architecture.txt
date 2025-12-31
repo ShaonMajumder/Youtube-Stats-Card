@@ -1,3 +1,6 @@
+if is local but env debug log is not equal true than no email will not go
+if email sending env var is off email will not go
+
 # Alerting & Throttling Behavior Specification
 
 This document defines the **observable behavior** of the alerting system used in the **YouTube‑Stats‑Card** project. It is intentionally written as a **behavioral contract**, independent of implementation details, function names, or programming language.

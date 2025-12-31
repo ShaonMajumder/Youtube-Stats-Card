@@ -36,6 +36,8 @@ const DEBUG_LOG = String(process.env.YOUTUBE_DEBUG_LOG || "").toLowerCase() === 
 const RESEND_API_KEY = (process.env.RESEND_API_KEY || "").trim();
 const ALERT_FROM = (process.env.ALERT_FROM || "").trim();
 const ALERT_TO = (process.env.ALERT_TO || "").trim();
+const ALERTS_DISABLED =
+  String(process.env.ALERTS_DISABLED || "").trim().toLowerCase() === "true";
 const ALERT_THROTTLE_MS = 60 * 60 * 1000;
 const ERROR_WINDOW_MS = 60 * 60 * 1000;
 const ERROR_FLOOD_THRESHOLD = 50;
@@ -340,6 +342,12 @@ function buildThumbnailUrlFromVideoId(videoId) {
 }
 
 function shouldAllowAlerts() {
+  if (ALERTS_DISABLED) {
+    if (DEBUG_LOG) {
+      console.log("[alert] disabled via ALERTS_DISABLED");
+    }
+    return false;
+  }
   if (IS_LOCAL && !DEBUG_LOG) {
     return false;
   }
